@@ -10,6 +10,14 @@ TEST_CASE("mac address parser") {
   REQUIRE(result.value() == 0xAABBCCDDEEFF);
 }
 
+TEST_CASE("mac address parser lower case") {
+  auto const a = std::string_view{"aa:bb:cc:dd:ee:ff               "}.substr(0, 17);
+
+  auto const result = macad_parser::parse_mac_address_unsafe(a);
+  REQUIRE(result.has_value());
+  REQUIRE(result.value() == 0xAABBCCDDEEFF);
+}
+
 TEST_CASE("mac address parser (non symmetric)") {
   auto const a = std::string_view{"01:23:45:67:89:AB               "}.substr(0, 17);
 

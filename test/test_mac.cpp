@@ -12,6 +12,14 @@ TEST_CASE("mac address parser safe") {
   REQUIRE(result.value() == 0xAABBCCDDEEFF);
 }
 
+TEST_CASE("mac address parser safe lower case") {
+  auto const a = std::string{"aa:bb:cc:dd:ee:ff"};
+
+  auto const result = macad_parser::parse_mac_address(a);
+  REQUIRE(result.has_value());
+  REQUIRE(result.value() == 0xAABBCCDDEEFF);
+}
+
 TEST_CASE("mac address parser safe (non symmetric)") {
   auto const a = std::string{"01:23:45:67:89:AB"};
 
