@@ -38,11 +38,11 @@ struct parse_mac_options_strict {
  *
  * @tparam Options パースの仕方を指定するオプション
  * @param mac_str パース対象のMACアドレス文字列 (例: "AA:BB:CC:DD:EE:FF")
- * @return std::optional<uint64_t>
+ * @return std::optional<std::uint64_t>
  */
 template <typename Options = parse_mac_options>
 [[nodiscard]]
-auto parse_mac_address_unsafe(std::string_view const mac) noexcept -> std::optional<uint64_t> {
+auto parse_mac_address_unsafe(std::string_view const mac) noexcept -> std::optional<std::uint64_t> {
   if (mac.size() < 17) {
     return std::nullopt;
   }
@@ -143,7 +143,7 @@ auto parse_mac_address_unsafe(std::string_view const mac) noexcept -> std::optio
 
   // 8. 64bit整数として抽出
   // simde_mm256_extract_epi64 は環境により挙動が重い場合があるが、意味的には直結
-  auto const raw = static_cast<uint64_t>(simde_mm256_extract_epi64(mac_vector, 0));
+  auto const raw = static_cast<std::uint64_t>(simde_mm256_extract_epi64(mac_vector, 0));
 
   // 9. エンディアン変換
   return std::byteswap(raw) >> 16;
@@ -156,11 +156,11 @@ auto parse_mac_address_unsafe(std::string_view const mac) noexcept -> std::optio
  *
  * @tparam Options パースの仕方を指定するオプション
  * @param mac_str パース対象のMACアドレス文字列 (例: "AA:BB:CC:DD:EE:FF")
- * @return std::optional<uint64_t>
+ * @return std::optional<std::uint64_t>
  */
 template <typename Options = parse_mac_options>
 [[nodiscard]]
-auto parse_mac_address(std::string_view const mac) noexcept -> std::optional<uint64_t> {
+auto parse_mac_address(std::string_view const mac) noexcept -> std::optional<std::uint64_t> {
   if (mac.size() < 17) {
     return std::nullopt;
   }
