@@ -42,7 +42,7 @@ struct parse_mac_options_strict {
  */
 template <typename Options = parse_mac_options>
 [[nodiscard]]
-auto parse_mac_address(std::string_view const mac) noexcept -> std::optional<uint64_t> {
+auto parse_mac_address_unsafe(std::string_view const mac) noexcept -> std::optional<uint64_t> {
   if (mac.size() < 17) {
     return std::nullopt;
   }
@@ -160,7 +160,7 @@ auto parse_mac_address(std::string_view const mac) noexcept -> std::optional<uin
  */
 template <typename Options = parse_mac_options>
 [[nodiscard]]
-auto parse_mac_address_safe(std::string_view const mac) noexcept -> std::optional<uint64_t> {
+auto parse_mac_address(std::string_view const mac) noexcept -> std::optional<uint64_t> {
   if (mac.size() < 17) {
     return std::nullopt;
   }
@@ -170,7 +170,7 @@ auto parse_mac_address_safe(std::string_view const mac) noexcept -> std::optiona
   auto const copy_len = (mac.size() < buf.size()) ? mac.size() : buf.size();
   std::memcpy(buf.data(), mac.data(), copy_len);
 
-  return parse_mac_address<Options>(std::string_view{buf.data(), copy_len});
+  return parse_mac_address_unsafe<Options>(std::string_view{buf.data(), copy_len});
 }
 
 } // namespace macad_parser
