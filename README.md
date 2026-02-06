@@ -35,7 +35,7 @@ cmake --build build
 ```cpp
 #include "macad-parser.hpp"
 
-auto v = macad_parser::parse_mac_address_safe("AA:BB:CC:DD:EE:FF");
+auto const v = macad_parser::parse_mac_address_safe("AA:BB:CC:DD:EE:FF");
 if (v) {
   // v.value() == 0xAABBCCDDEEFF
 }
@@ -94,7 +94,7 @@ struct opt_delimiter {
   static constexpr char delimiter = '-';
 };
 
-auto v = macad_parser::parse_mac_address<opt_delimiter>("01-23-45-67-89-AB");
+auto const v = macad_parser::parse_mac_address<opt_delimiter>("01-23-45-67-89-AB");
 ```
 
 ## 形式と返り値
