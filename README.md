@@ -1,6 +1,6 @@
 # macad-parser
 
-MACアドレス文字列（例: `AA:BB:CC:DD:EE:FF`）を48bit整数（`uint64_t` の下位48bit）へ変換するヘッダオンリーライブラリです。
+MACアドレス文字列（例: `AA:BB:CC:DD:EE:FF`）を48bit整数（`std::uint64_t` の下位48bit）へ変換するヘッダオンリーライブラリです。
 
 - SIMDe（AVX2相当）でSIMD化（ARM等でもSIMDe経由で動作）
 - オプションstructによるコンパイル時設定（`if constexpr`）
@@ -43,29 +43,31 @@ if (v) {
 
 ### API
 
-#### `parse_mac_address_unsafe`
-
-```cpp
-template <typename Options = macad_parser::parse_mac_options>
-std::optional<uint64_t> parse_mac_address_unsafe(std::string_view mac_str) noexcept;
-```
-
-- 高速パース本体。
-- **注意:** 内部で256bitロード（32byte）相当の処理を行うため、呼び出し側が `std::string_view` の有効範囲外を読ませない保証が必要になります。
-  - `std::string_view::data()` が有効なのは `[data(), data() + size())` の範囲であり、範囲外アクセスは未定義動作になり得ます。
-- データ範囲を確定できない場合は下記のsafe版を推奨します。
-
 #### `parse_mac_address`
 
 ```cpp
 template <typename Options = macad_parser::parse_mac_options>
-std::optional<uint64_t> parse_mac_address(std::string_view mac_str) noexcept;
+std::optional<std::uint64_t> parse_mac_address(std::string_view const mac) noexcept;
 ```
 
 - 入力を32byteのローカルバッファへコピーしてから `parse_mac_address_unsafe` を呼ぶラッパー。
 - 入力が短い場合のバッファオーバーリードを避けたい場合はこちらを推奨します。
 
+#### `parse_mac_address_unsafe`
+
+```cpp
+template <typename Options = macad_parser::parse_mac_options>
+std::optional<std::uint64_t> parse_mac_address_unsafe(std::string_view const mac) noexcept;
+```
+
+- 高速パース本体。
+- **注意:** 内部で256bit(32byte)を読み込むため、呼び出し側が `std::string_view` の有効範囲外を読ませない保証が必要になります。
+  - `std::string_view::data()` が有効なのは `[data(), data() + size())` の範囲であり、範囲外アクセスは未定義動作になり得ます。
+- データ範囲を確定できない場合は利用しないでください。
+
 ## オプション
+
+内部動作を制御するにはオプションstructをテンプレート引数で指定します。
 
 ### `macad_parser::parse_mac_options`（デフォルト）
 
@@ -85,7 +87,7 @@ std::optional<uint64_t> parse_mac_address(std::string_view mac_str) noexcept;
 
 ### カスタムオプションの例
 
-独自structを定義してオプションを指定できます。
+独自structを定義して独自のオプションを指定できます。
 
 ```cpp
 struct opt_delimiter {
@@ -100,7 +102,7 @@ auto const v = macad_parser::parse_mac_address<opt_delimiter>("01-23-45-67-89-AB
 ## 形式と返り値
 
 - 入力: 先頭17文字が `XX?XX?XX?XX?XX?XX` 形式（`X`は16進、`?`はデリミタ）
-- 返り値: `0xAABBCCDDEEFF` のようにビッグエンディアン表記の値を `uint64_t` に格納し、下位48bitを利用します
+- 返り値: `0xAABBCCDDEEFF` のようにビッグエンディアン表記の値を `std::uint64_t` に格納し、下位48bitを利用します
 - パース失敗時: `std::nullopt`
 
 ## ライセンス
