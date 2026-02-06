@@ -83,7 +83,7 @@ std::optional<uint64_t> parse_mac_address(std::string_view mac_str) noexcept;
 
 > 厳密に `AA:BB:CC:DD:EE:FF` 形式かを検証します。
 
-### カスタムオプションの礼
+### カスタムオプションの例
 
 独自structを定義してオプションを指定できます。
 
