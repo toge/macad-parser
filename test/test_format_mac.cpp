@@ -76,6 +76,15 @@ struct opt_delimiter_space : public macad_parser::parse_mac_options {
   static constexpr char delimiter = ' ';
 };
 
+struct opt_lowercase : public macad_parser::parse_mac_options {
+  static constexpr bool uppercase = false;
+};
+
+struct opt_lowercase_dash : public macad_parser::parse_mac_options {
+  static constexpr char delimiter = '-';
+  static constexpr bool uppercase = false;
+};
+
 TEST_CASE("format mac address with custom delimiter") {
   SECTION("dash delimiter") {
     auto const mac = 0x0123456789ABull;
@@ -87,6 +96,26 @@ TEST_CASE("format mac address with custom delimiter") {
     auto const mac = 0xAABBCCDDEEFFull;
     auto const result = macad_parser::format_mac_address<opt_delimiter_space>(mac);
     REQUIRE(result == "AA BB CC DD EE FF");
+  }
+}
+
+TEST_CASE("format mac address with lowercase") {
+  SECTION("lowercase default delimiter") {
+    auto const mac = 0xAABBCCDDEEFFull;
+    auto const result = macad_parser::format_mac_address<opt_lowercase>(mac);
+    REQUIRE(result == "aa:bb:cc:dd:ee:ff");
+  }
+
+  SECTION("lowercase with dash delimiter") {
+    auto const mac = 0x0123456789ABull;
+    auto const result = macad_parser::format_mac_address<opt_lowercase_dash>(mac);
+    REQUIRE(result == "01-23-45-67-89-ab");
+  }
+
+  SECTION("lowercase various patterns") {
+    auto const mac = 0xFEDCBA987654ull;
+    auto const result = macad_parser::format_mac_address<opt_lowercase>(mac);
+    REQUIRE(result == "fe:dc:ba:98:76:54");
   }
 }
 

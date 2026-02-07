@@ -20,6 +20,7 @@ struct parse_mac_options {
   static constexpr bool validate_delimiters = false;
   static constexpr bool validate_hex = false;
   static constexpr char delimiter = ':';
+  static constexpr bool uppercase = true;
 };
 
 /**
@@ -29,6 +30,7 @@ struct parse_mac_options_strict {
   static constexpr bool validate_delimiters = true;
   static constexpr bool validate_hex = true;
   static constexpr char delimiter = ':';
+  static constexpr bool uppercase = true;
 };
 
 /**
@@ -180,9 +182,9 @@ auto parse_mac_address(std::string_view const mac) noexcept -> std::optional<std
  * SIMDEを利用してAVX2命令を抽象化し、ARM環境でも動作するように実装
  * 整数値から16進数文字列への変換をベクトル演算（SIMDE経由）で行います
  *
- * @tparam Options デリミタを指定するオプション（validate_delimitersとvalidate_hexは無視される）
+ * @tparam Options デリミタと大文字・小文字を指定するオプション（validate_delimitersとvalidate_hexは無視される）
  * @param mac 48bit整数値（0x0000000000000000〜0x0000FFFFFFFFFFFF）
- * @return std::string MACアドレス文字列 (例: "AA:BB:CC:DD:EE:FF")
+ * @return std::string MACアドレス文字列 (例: "AA:BB:CC:DD:EE:FF" または "aa:bb:cc:dd:ee:ff")
  */
 template <typename Options = parse_mac_options>
 [[nodiscard]]
@@ -202,15 +204,24 @@ auto format_mac_address(std::uint64_t const mac) -> std::string {
   auto const mac_bytes = simde_mm256_loadu_si256(reinterpret_cast<simde__m256i const*>(buf.data()));
 
   // 4. ニブル変換用のルックアップテーブルを作成
-  // 16進数字への変換テーブル: 0-9 -> '0'-'9', 10-15 -> 'A'-'F'
-  auto const hex_lut = simde_mm256_setr_epi8(
-    // clang-format off
-    '0', '1', '2', '3', '4', '5', '6', '7',
-    '8', '9', 'A', 'B', 'C', 'D', 'E', 'F',
-    '0', '1', '2', '3', '4', '5', '6', '7',
-    '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'
-    // clang-format on
-  );
+  // 16進数字への変換テーブル: 0-9 -> '0'-'9', 10-15 -> 'A'-'F' or 'a'-'f'
+  auto const hex_lut = Options::uppercase 
+    ? simde_mm256_setr_epi8(
+        // clang-format off
+        '0', '1', '2', '3', '4', '5', '6', '7',
+        '8', '9', 'A', 'B', 'C', 'D', 'E', 'F',
+        '0', '1', '2', '3', '4', '5', '6', '7',
+        '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'
+        // clang-format on
+      )
+    : simde_mm256_setr_epi8(
+        // clang-format off
+        '0', '1', '2', '3', '4', '5', '6', '7',
+        '8', '9', 'a', 'b', 'c', 'd', 'e', 'f',
+        '0', '1', '2', '3', '4', '5', '6', '7',
+        '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'
+        // clang-format on
+      );
 
   // 5. 各バイトを上位/下位ニブルに分離
   // 上位ニブルは右に4シフトするが、16bit境界を越えないように先にマスク
