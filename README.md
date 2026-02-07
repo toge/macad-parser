@@ -1,6 +1,6 @@
 # macad-parser
 
-MACアドレス文字列（例: `AA:BB:CC:DD:EE:FF`）を48bit整数（`std::uint64_t` の下位48bit）へ変換するヘッダオンリーライブラリです。
+MACアドレス文字列（例: `AA:BB:CC:DD:EE:FF`）を48bit整数（`std::uint64_t` の下位48bit）へ変換、および48bit整数をMACアドレス文字列へ変換するヘッダオンリーライブラリです。
 
 - SIMDe（AVX2相当）でSIMD化（ARM等でもSIMDe経由で動作）
 - オプションstructによるコンパイル時設定（`if constexpr`）
@@ -35,10 +35,15 @@ cmake --build build
 ```cpp
 #include "macad-parser.hpp"
 
-auto const v = macad_parser::parse_mac_address_safe("AA:BB:CC:DD:EE:FF");
+// MACアドレス文字列を整数に変換
+auto const v = macad_parser::parse_mac_address("AA:BB:CC:DD:EE:FF");
 if (v) {
   // v.value() == 0xAABBCCDDEEFF
 }
+
+// 整数をMACアドレス文字列に変換
+auto const mac_str = macad_parser::format_mac_address(0xAABBCCDDEEFFull);
+// mac_str == "AA:BB:CC:DD:EE:FF"
 ```
 
 ### API
@@ -64,6 +69,18 @@ std::optional<std::uint64_t> parse_mac_address_unsafe(std::string_view const mac
 - **注意:** 内部で256bit(32byte)を読み込むため、呼び出し側が `std::string_view` の有効範囲外を読ませない保証が必要になります。
   - `std::string_view::data()` が有効なのは `[data(), data() + size())` の範囲であり、範囲外アクセスは未定義動作になり得ます。
 - データ範囲を確定できない場合は利用しないでください。
+
+#### `format_mac_address`
+
+```cpp
+template <typename Options = macad_parser::parse_mac_options>
+std::string format_mac_address(std::uint64_t const mac) noexcept;
+```
+
+- 48bit整数をMACアドレス文字列に変換します。
+- SIMDEを利用してAVX2命令で高速に変換を行います。
+- 上位16bitは無視され、下位48bitのみが使用されます。
+- `Options` でデリミタをカスタマイズできます（`validate_delimiters` と `validate_hex` は無視されます）。
 
 ## オプション
 

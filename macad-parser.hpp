@@ -186,7 +186,7 @@ auto parse_mac_address(std::string_view const mac) noexcept -> std::optional<std
  */
 template <typename Options = parse_mac_options>
 [[nodiscard]]
-auto format_mac_address(std::uint64_t const mac) noexcept -> std::string {
+auto format_mac_address(std::uint64_t const mac) -> std::string {
   // 1. 48bitに制限（上位16bitをマスク）
   auto const mac_48 = mac & 0xFFFFFFFFFFFFull;
 
