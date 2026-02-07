@@ -1,5 +1,6 @@
 build
 build_static
+_codeql_build_dir
 save-commands.json
 
 # Prerequisites
