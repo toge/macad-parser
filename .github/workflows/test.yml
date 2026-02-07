@@ -24,9 +24,15 @@ jobs:
       with:
         vcpkgJsonGlob: 'vcpkg.json'
         
-    - name: Configure CMake
+    - name: Configure CMake (Unix)
+      if: runner.os != 'Windows'
       run: |
-        cmake -B build -DCMAKE_TOOLCHAIN_FILE=${{ github.workspace }}/vcpkg/scripts/buildsystems/vcpkg.cmake -DCMAKE_BUILD_TYPE=Release -S .
+        cmake -B build -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake -DCMAKE_BUILD_TYPE=Release -S .
+        
+    - name: Configure CMake (Windows)
+      if: runner.os == 'Windows'
+      run: |
+        cmake -B build -DCMAKE_TOOLCHAIN_FILE=$env:VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake -DCMAKE_BUILD_TYPE=Release -S .
         
     - name: Build
       run: cmake --build build --config Release
