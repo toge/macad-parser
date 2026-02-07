@@ -162,102 +162,102 @@ TEST_CASE("round-trip conversion") {
 TEST_CASE("format_mac_address_to_buffer basic functionality") {
   SECTION("basic conversion") {
     auto const mac = 0xAABBCCDDEEFFull;
-    char buffer[17];
+    std::array<char, 17> buffer;
     auto const len = macad_parser::format_mac_address_to_buffer(mac, buffer);
     REQUIRE(len == 17);
-    REQUIRE(std::string_view{buffer, 17} == "AA:BB:CC:DD:EE:FF");
+    REQUIRE(std::string_view{buffer.data(), 17} == "AA:BB:CC:DD:EE:FF");
   }
 
   SECTION("non-symmetric pattern") {
     auto const mac = 0x0123456789ABull;
-    char buffer[17];
+    std::array<char, 17> buffer;
     auto const len = macad_parser::format_mac_address_to_buffer(mac, buffer);
     REQUIRE(len == 17);
-    REQUIRE(std::string_view{buffer, 17} == "01:23:45:67:89:AB");
+    REQUIRE(std::string_view{buffer.data(), 17} == "01:23:45:67:89:AB");
   }
 
   SECTION("all zeros") {
     auto const mac = 0x000000000000ull;
-    char buffer[17];
+    std::array<char, 17> buffer;
     auto const len = macad_parser::format_mac_address_to_buffer(mac, buffer);
     REQUIRE(len == 17);
-    REQUIRE(std::string_view{buffer, 17} == "00:00:00:00:00:00");
+    REQUIRE(std::string_view{buffer.data(), 17} == "00:00:00:00:00:00");
   }
 
   SECTION("all ones") {
     auto const mac = 0xFFFFFFFFFFFFull;
-    char buffer[17];
+    std::array<char, 17> buffer;
     auto const len = macad_parser::format_mac_address_to_buffer(mac, buffer);
     REQUIRE(len == 17);
-    REQUIRE(std::string_view{buffer, 17} == "FF:FF:FF:FF:FF:FF");
+    REQUIRE(std::string_view{buffer.data(), 17} == "FF:FF:FF:FF:FF:FF");
   }
 
   SECTION("upper bits masked") {
     auto const mac = 0xFFFFAABBCCDDEEFFull;
-    char buffer[17];
+    std::array<char, 17> buffer;
     auto const len = macad_parser::format_mac_address_to_buffer(mac, buffer);
     REQUIRE(len == 17);
-    REQUIRE(std::string_view{buffer, 17} == "AA:BB:CC:DD:EE:FF");
+    REQUIRE(std::string_view{buffer.data(), 17} == "AA:BB:CC:DD:EE:FF");
   }
 }
 
 TEST_CASE("format_mac_address_to_buffer with custom options") {
   SECTION("dash delimiter") {
     auto const mac = 0x0123456789ABull;
-    char buffer[17];
+    std::array<char, 17> buffer;
     auto const len = macad_parser::format_mac_address_to_buffer<opt_delimiter_dash>(mac, buffer);
     REQUIRE(len == 17);
-    REQUIRE(std::string_view{buffer, 17} == "01-23-45-67-89-AB");
+    REQUIRE(std::string_view{buffer.data(), 17} == "01-23-45-67-89-AB");
   }
 
   SECTION("space delimiter") {
     auto const mac = 0xAABBCCDDEEFFull;
-    char buffer[17];
+    std::array<char, 17> buffer;
     auto const len = macad_parser::format_mac_address_to_buffer<opt_delimiter_space>(mac, buffer);
     REQUIRE(len == 17);
-    REQUIRE(std::string_view{buffer, 17} == "AA BB CC DD EE FF");
+    REQUIRE(std::string_view{buffer.data(), 17} == "AA BB CC DD EE FF");
   }
 
   SECTION("lowercase") {
     auto const mac = 0xAABBCCDDEEFFull;
-    char buffer[17];
+    std::array<char, 17> buffer;
     auto const len = macad_parser::format_mac_address_to_buffer<opt_lowercase>(mac, buffer);
     REQUIRE(len == 17);
-    REQUIRE(std::string_view{buffer, 17} == "aa:bb:cc:dd:ee:ff");
+    REQUIRE(std::string_view{buffer.data(), 17} == "aa:bb:cc:dd:ee:ff");
   }
 
   SECTION("lowercase with dash") {
     auto const mac = 0x0123456789ABull;
-    char buffer[17];
+    std::array<char, 17> buffer;
     auto const len = macad_parser::format_mac_address_to_buffer<opt_lowercase_dash>(mac, buffer);
     REQUIRE(len == 17);
-    REQUIRE(std::string_view{buffer, 17} == "01-23-45-67-89-ab");
+    REQUIRE(std::string_view{buffer.data(), 17} == "01-23-45-67-89-ab");
   }
 }
 
 TEST_CASE("format_mac_address_to_buffer various patterns") {
   SECTION("pattern 1") {
     auto const mac = 0x112233445566ull;
-    char buffer[17];
+    std::array<char, 17> buffer;
     auto const len = macad_parser::format_mac_address_to_buffer(mac, buffer);
     REQUIRE(len == 17);
-    REQUIRE(std::string_view{buffer, 17} == "11:22:33:44:55:66");
+    REQUIRE(std::string_view{buffer.data(), 17} == "11:22:33:44:55:66");
   }
 
   SECTION("pattern 2") {
     auto const mac = 0xFEDCBA987654ull;
-    char buffer[17];
+    std::array<char, 17> buffer;
     auto const len = macad_parser::format_mac_address_to_buffer(mac, buffer);
     REQUIRE(len == 17);
-    REQUIRE(std::string_view{buffer, 17} == "FE:DC:BA:98:76:54");
+    REQUIRE(std::string_view{buffer.data(), 17} == "FE:DC:BA:98:76:54");
   }
 
   SECTION("pattern 3") {
     auto const mac = 0xA1B2C3D4E5F6ull;
-    char buffer[17];
+    std::array<char, 17> buffer;
     auto const len = macad_parser::format_mac_address_to_buffer(mac, buffer);
     REQUIRE(len == 17);
-    REQUIRE(std::string_view{buffer, 17} == "A1:B2:C3:D4:E5:F6");
+    REQUIRE(std::string_view{buffer.data(), 17} == "A1:B2:C3:D4:E5:F6");
   }
 }
 
@@ -273,10 +273,10 @@ TEST_CASE("format_mac_address delegates to format_mac_address_to_buffer") {
     };
 
     for (auto const& val : test_values) {
-      char buffer[17];
+      std::array<char, 17> buffer;
       macad_parser::format_mac_address_to_buffer(val, buffer);
       auto const str_version = macad_parser::format_mac_address(val);
-      REQUIRE(std::string_view{buffer, 17} == str_version);
+      REQUIRE(std::string_view{buffer.data(), 17} == str_version);
     }
   }
 }

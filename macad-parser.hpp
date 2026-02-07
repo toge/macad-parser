@@ -10,10 +10,16 @@
 #include <string>
 #include <type_traits>
 #include <concepts>
+#include <span>
 
 #include "simde/x86/avx2.h"
 
 namespace macad_parser {
+
+/**
+ * @brief MACアドレス文字列の長さ（デリミタを含む）
+ */
+inline constexpr std::size_t MAC_ADDRESS_STRING_LENGTH = 17;
 
 /**
  * @brief MACアドレスパースオプションのデフォルト設定
@@ -236,11 +242,11 @@ auto parse_mac_address(std::string_view const mac) noexcept -> std::optional<std
  *
  * @tparam Options デリミタと大文字・小文字を指定するオプション（validate_delimitersとvalidate_hexは無視される）
  * @param mac 48bit整数値（0x0000000000000000〜0x0000FFFFFFFFFFFF）
- * @param buffer 出力先のバッファ（最低17バイトが必要）
+ * @param buffer 出力先のバッファ（17バイトが必要）
  * @return 書き込まれた文字数（常に17）
  */
 template <typename Options = parse_mac_options>
-auto format_mac_address_to_buffer(std::uint64_t const mac, char* const buffer) -> std::size_t {
+auto format_mac_address_to_buffer(std::uint64_t const mac, std::span<char, MAC_ADDRESS_STRING_LENGTH> buffer) -> std::size_t {
   // 1. 48bitに制限（上位16bitをマスク）
   auto const mac_48 = mac & 0xFFFFFFFFFFFFull;
 
@@ -340,7 +346,7 @@ auto format_mac_address_to_buffer(std::uint64_t const mac, char* const buffer) -
   auto const result_vec = simde_mm_blendv_epi8(formatted, delim, delim_mask);
 
   // 10. ベクトルから文字列を抽出（16バイト）
-  simde_mm_storeu_si128(reinterpret_cast<simde__m128i*>(buffer), result_vec);
+  simde_mm_storeu_si128(reinterpret_cast<simde__m128i*>(buffer.data()), result_vec);
   
   // 11. 最後の文字（17バイト目）を個別に追加
   // hex_charsの位置11（最後のlo nibble）を抽出
@@ -348,7 +354,7 @@ auto format_mac_address_to_buffer(std::uint64_t const mac, char* const buffer) -
   simde_mm_storeu_si128(reinterpret_cast<simde__m128i*>(temp_hex_storage), hex_chars);
   buffer[16] = temp_hex_storage[11];
 
-  return 17;
+  return MAC_ADDRESS_STRING_LENGTH;
 }
 
 /**
@@ -364,9 +370,9 @@ auto format_mac_address_to_buffer(std::uint64_t const mac, char* const buffer) -
 template <typename Options = parse_mac_options>
 [[nodiscard]]
 auto format_mac_address(std::uint64_t const mac) -> std::string {
-  auto result_buf = std::array<char, 17>{};
-  format_mac_address_to_buffer<Options>(mac, result_buf.data());
-  return std::string{result_buf.data(), 17};
+  auto result_buf = std::array<char, MAC_ADDRESS_STRING_LENGTH>{};
+  format_mac_address_to_buffer<Options>(mac, result_buf);
+  return std::string{result_buf.data(), MAC_ADDRESS_STRING_LENGTH};
 }
 
 } // namespace macad_parser
