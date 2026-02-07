@@ -1,6 +1,6 @@
 # macad-parser
 
-MACアドレス文字列（例: `AA:BB:CC:DD:EE:FF`）を48bit整数（`std::uint64_t` の下位48bit）へ変換するヘッダオンリーライブラリです。
+MACアドレス文字列（例: `AA:BB:CC:DD:EE:FF`）を48bit整数（`std::uint64_t` の下位48bit）へ変換、および48bit整数をMACアドレス文字列へ変換するヘッダオンリーライブラリです。
 
 - SIMDe（AVX2相当）でSIMD化（ARM等でもSIMDe経由で動作）
 - オプションstructによるコンパイル時設定（`if constexpr`）
@@ -35,10 +35,15 @@ cmake --build build
 ```cpp
 #include "macad-parser.hpp"
 
-auto const v = macad_parser::parse_mac_address_safe("AA:BB:CC:DD:EE:FF");
+// MACアドレス文字列を整数に変換
+auto const v = macad_parser::parse_mac_address("AA:BB:CC:DD:EE:FF");
 if (v) {
   // v.value() == 0xAABBCCDDEEFF
 }
+
+// 整数をMACアドレス文字列に変換
+auto const mac_str = macad_parser::format_mac_address(0xAABBCCDDEEFFull);
+// mac_str == "AA:BB:CC:DD:EE:FF"
 ```
 
 ### API
@@ -65,6 +70,18 @@ std::optional<std::uint64_t> parse_mac_address_unsafe(std::string_view const mac
   - `std::string_view::data()` が有効なのは `[data(), data() + size())` の範囲であり、範囲外アクセスは未定義動作になり得ます。
 - データ範囲を確定できない場合は利用しないでください。
 
+#### `format_mac_address`
+
+```cpp
+template <typename Options = macad_parser::parse_mac_options>
+std::string format_mac_address(std::uint64_t const mac);
+```
+
+- 48bit整数をMACアドレス文字列に変換します。
+- SIMDEを利用してAVX2命令で高速に変換を行います。
+- 上位16bitは無視され、下位48bitのみが使用されます。
+- `Options` でデリミタと大文字・小文字をカスタマイズできます（`validate_delimiters` と `validate_hex` は無視されます）。
+
 ## オプション
 
 内部動作を制御するにはオプションstructをテンプレート引数で指定します。
@@ -74,16 +91,18 @@ std::optional<std::uint64_t> parse_mac_address_unsafe(std::string_view const mac
 - `validate_delimiters = false`
 - `validate_hex = false`
 - `delimiter = ':'`
+- `uppercase = true`
 
-> パフォーマンス優先で、入力の妥当性チェックは行いません。
+> パフォーマンス優先で、入力の妥当性チェックは行いません。16進数文字は大文字で出力されます。
 
 ### `macad_parser::parse_mac_options_strict`
 
 - `validate_delimiters = true`
 - `validate_hex = true`
 - `delimiter = ':'`
+- `uppercase = true`
 
-> 厳密に `AA:BB:CC:DD:EE:FF` 形式かを検証します。
+> 厳密に `AA:BB:CC:DD:EE:FF` 形式かを検証します。16進数文字は大文字で出力されます。
 
 ### カスタムオプションの例
 
@@ -97,6 +116,14 @@ struct opt_delimiter {
 };
 
 auto const v = macad_parser::parse_mac_address<opt_delimiter>("01-23-45-67-89-AB");
+
+// 小文字の16進数文字を使用する例
+struct opt_lowercase {
+  static constexpr bool uppercase = false;
+};
+
+auto const mac_str = macad_parser::format_mac_address<opt_lowercase>(0xAABBCCDDEEFFull);
+// mac_str == "aa:bb:cc:dd:ee:ff"
 ```
 
 ## 形式と返り値

@@ -7,6 +7,7 @@
 #include <bit>
 #include <array>
 #include <cstring>
+#include <string>
 
 #include "simde/x86/avx2.h"
 
@@ -19,6 +20,7 @@ struct parse_mac_options {
   static constexpr bool validate_delimiters = false;
   static constexpr bool validate_hex = false;
   static constexpr char delimiter = ':';
+  static constexpr bool uppercase = true;
 };
 
 /**
@@ -28,6 +30,7 @@ struct parse_mac_options_strict {
   static constexpr bool validate_delimiters = true;
   static constexpr bool validate_hex = true;
   static constexpr char delimiter = ':';
+  static constexpr bool uppercase = true;
 };
 
 /**
@@ -171,6 +174,130 @@ auto parse_mac_address(std::string_view const mac) noexcept -> std::optional<std
   std::memcpy(buf.data(), mac.data(), copy_len);
 
   return parse_mac_address_unsafe<Options>(std::string_view{buf.data(), copy_len});
+}
+
+/**
+ * @brief 48bit整数をMACアドレス文字列に変換する
+ *
+ * SIMDEを利用してAVX2命令を抽象化し、ARM環境でも動作するように実装
+ * 整数値から16進数文字列への変換をベクトル演算（SIMDE経由）で行います
+ *
+ * @tparam Options デリミタと大文字・小文字を指定するオプション（validate_delimitersとvalidate_hexは無視される）
+ * @param mac 48bit整数値（0x0000000000000000〜0x0000FFFFFFFFFFFF）
+ * @return std::string MACアドレス文字列 (例: "AA:BB:CC:DD:EE:FF" または "aa:bb:cc:dd:ee:ff")
+ */
+template <typename Options = parse_mac_options>
+[[nodiscard]]
+auto format_mac_address(std::uint64_t const mac) -> std::string {
+  // 1. 48bitに制限（上位16bitをマスク）
+  auto const mac_48 = mac & 0xFFFFFFFFFFFFull;
+
+  // 2. ビッグエンディアン形式で6バイトに展開
+  // エンディアン変換後に左シフトして上位48bitを使用
+  auto const swapped = std::byteswap(mac_48 << 16);
+
+  // 3. 6バイトをSIMDレジスタにロード
+  // 最初の8バイトを使用（6バイトのMACアドレス + 2バイトのパディング）
+  auto buf = std::array<std::uint8_t, 32>{};
+  std::memcpy(buf.data(), &swapped, 8);
+
+  auto const mac_bytes = simde_mm256_loadu_si256(reinterpret_cast<simde__m256i const*>(buf.data()));
+
+  // 4. ニブル変換用のルックアップテーブルを作成
+  // 16進数字への変換テーブル: 0-9 -> '0'-'9', 10-15 -> 'A'-'F' or 'a'-'f'
+  auto const hex_lut = Options::uppercase 
+    ? simde_mm256_setr_epi8(
+        // clang-format off
+        '0', '1', '2', '3', '4', '5', '6', '7',
+        '8', '9', 'A', 'B', 'C', 'D', 'E', 'F',
+        '0', '1', '2', '3', '4', '5', '6', '7',
+        '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'
+        // clang-format on
+      )
+    : simde_mm256_setr_epi8(
+        // clang-format off
+        '0', '1', '2', '3', '4', '5', '6', '7',
+        '8', '9', 'a', 'b', 'c', 'd', 'e', 'f',
+        '0', '1', '2', '3', '4', '5', '6', '7',
+        '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'
+        // clang-format on
+      );
+
+  // 5. 各バイトを上位/下位ニブルに分離
+  // 上位ニブルは右に4シフトするが、16bit境界を越えないように先にマスク
+  auto const hi_nibbles = simde_mm256_srli_epi16(
+      simde_mm256_and_si256(mac_bytes, simde_mm256_set1_epi8(static_cast<char>(0xF0))),
+      4
+  );
+  auto const lo_nibbles = simde_mm256_and_si256(mac_bytes, simde_mm256_set1_epi8(0x0F));
+
+  // 6. ルックアップテーブルを使って16進文字に変換
+  auto const hi_chars = simde_mm256_shuffle_epi8(hex_lut, hi_nibbles);
+  auto const lo_chars = simde_mm256_shuffle_epi8(hex_lut, lo_nibbles);
+
+  // 7. 上位と下位を交互に配置（128bit演算に切り替え）
+  // shuffle_epi8は128bitレーン内でのみ動作するため、下位128bitを使用
+  auto const hi_chars_128 = simde_mm256_castsi256_si128(hi_chars);
+  auto const lo_chars_128 = simde_mm256_castsi256_si128(lo_chars);
+  
+  // シャッフルで配置: hi を偶数位置に、lo を奇数位置に
+  auto const shuffle_hi = simde_mm_setr_epi8(
+    // clang-format off
+     0, -1,  1, -1,  2, -1,  3, -1,
+     4, -1,  5, -1, -1, -1, -1, -1
+    // clang-format on
+  );
+  auto const shuffle_lo = simde_mm_setr_epi8(
+    // clang-format off
+    -1,  0, -1,  1, -1,  2, -1,  3,
+    -1,  4, -1,  5, -1, -1, -1, -1
+    // clang-format on
+  );
+  
+  auto const hi_positioned = simde_mm_shuffle_epi8(hi_chars_128, shuffle_hi);
+  auto const lo_positioned = simde_mm_shuffle_epi8(lo_chars_128, shuffle_lo);
+  
+  auto const hex_chars = simde_mm_or_si128(hi_positioned, lo_positioned);
+
+  // 8. デリミタを挿入して最終形式に整形（128bit版）
+  // 目標: XX:XX:XX:XX:XX:XX (17文字)
+  // hex_charsは12バイト(0-11)を持つ: 1,1,2,2,3,3,4,4,5,5,6,6
+  // 出力位置: 0,1,:,2,3,:,4,5,:,6,7,:,8,9,:,10,11
+  // 128bitレジスタでは16バイトまでしか扱えないため、17バイト目は個別に処理
+  
+  auto const delim = simde_mm_set1_epi8(Options::delimiter);
+
+  auto const shuffle_with_delim = simde_mm_setr_epi8(
+    // clang-format off
+     0,  1, -1,  2,  3, -1,  4,  5,
+    -1,  6,  7, -1,  8,  9, -1, 10
+    // clang-format on
+  );
+
+  auto const formatted = simde_mm_shuffle_epi8(hex_chars, shuffle_with_delim);
+
+  // 9. デリミタの位置にデリミタ文字をブレンド
+  // デリミタ位置は 2, 5, 8, 11, 14
+  auto const delim_mask = simde_mm_setr_epi8(
+    // clang-format off
+     0,  0, -1,  0,  0, -1,  0,  0,
+    -1,  0,  0, -1,  0,  0, -1,  0
+    // clang-format on
+  );
+
+  auto const result_vec = simde_mm_blendv_epi8(formatted, delim, delim_mask);
+
+  // 10. ベクトルから文字列を抽出（16バイト）
+  auto result_buf = std::array<char, 32>{};
+  simde_mm_storeu_si128(reinterpret_cast<simde__m128i*>(result_buf.data()), result_vec);
+  
+  // 11. 最後の文字（17バイト目）を個別に追加
+  // hex_charsの位置11（最後のlo nibble）を抽出
+  alignas(16) char temp_hex_storage[16];
+  simde_mm_storeu_si128(reinterpret_cast<simde__m128i*>(temp_hex_storage), hex_chars);
+  result_buf[16] = temp_hex_storage[11];
+
+  return std::string{result_buf.data(), 17};
 }
 
 } // namespace macad_parser
