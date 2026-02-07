@@ -37,36 +37,37 @@ struct parse_mac_options_strict {
 // Helper traits to provide default values for Options members
 namespace detail {
   // Helper to check if a member exists and get its value or default
-  template <typename T, typename = void>
+  template <typename T>
   struct has_validate_delimiters : std::bool_constant<false> {};
   
   template <typename T>
-  struct has_validate_delimiters<T, std::void_t<decltype(T::validate_delimiters)>> 
-      : std::bool_constant<T::validate_delimiters> {};
+    requires requires { T::validate_delimiters; }
+  struct has_validate_delimiters<T> : std::bool_constant<T::validate_delimiters> {};
   
-  template <typename T, typename = void>
+  template <typename T>
   struct has_validate_hex : std::bool_constant<false> {};
   
   template <typename T>
-  struct has_validate_hex<T, std::void_t<decltype(T::validate_hex)>> 
-      : std::bool_constant<T::validate_hex> {};
+    requires requires { T::validate_hex; }
+  struct has_validate_hex<T> : std::bool_constant<T::validate_hex> {};
   
-  template <typename T, typename = void>
+  template <typename T>
   struct has_delimiter {
     static constexpr char value = ':';
   };
   
   template <typename T>
-  struct has_delimiter<T, std::void_t<decltype(T::delimiter)>> {
+    requires requires { T::delimiter; }
+  struct has_delimiter<T> {
     static constexpr char value = T::delimiter;
   };
   
-  template <typename T, typename = void>
+  template <typename T>
   struct has_uppercase : std::bool_constant<true> {};
   
   template <typename T>
-  struct has_uppercase<T, std::void_t<decltype(T::uppercase)>> 
-      : std::bool_constant<T::uppercase> {};
+    requires requires { T::uppercase; }
+  struct has_uppercase<T> : std::bool_constant<T::uppercase> {};
   
   // Helper variables for easier access
   template <typename T>
