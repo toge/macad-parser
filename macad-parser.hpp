@@ -228,18 +228,19 @@ auto parse_mac_address(std::string_view const mac) noexcept -> std::optional<std
 }
 
 /**
- * @brief 48bit整数をMACアドレス文字列に変換する
+ * @brief 48bit整数をMACアドレス文字列に変換し、指定されたバッファに書き込む
  *
  * SIMDEを利用してAVX2命令を抽象化し、ARM環境でも動作するように実装
  * 整数値から16進数文字列への変換をベクトル演算（SIMDE経由）で行います
+ * メモリアロケーションを行わない版です。
  *
  * @tparam Options デリミタと大文字・小文字を指定するオプション（validate_delimitersとvalidate_hexは無視される）
  * @param mac 48bit整数値（0x0000000000000000〜0x0000FFFFFFFFFFFF）
- * @return std::string MACアドレス文字列 (例: "AA:BB:CC:DD:EE:FF" または "aa:bb:cc:dd:ee:ff")
+ * @param buffer 出力先のバッファ（最低17バイトが必要）
+ * @return 書き込まれた文字数（常に17）
  */
 template <typename Options = parse_mac_options>
-[[nodiscard]]
-auto format_mac_address(std::uint64_t const mac) -> std::string {
+auto format_mac_address_to_buffer(std::uint64_t const mac, char* const buffer) -> std::size_t {
   // 1. 48bitに制限（上位16bitをマスク）
   auto const mac_48 = mac & 0xFFFFFFFFFFFFull;
 
@@ -339,15 +340,32 @@ auto format_mac_address(std::uint64_t const mac) -> std::string {
   auto const result_vec = simde_mm_blendv_epi8(formatted, delim, delim_mask);
 
   // 10. ベクトルから文字列を抽出（16バイト）
-  auto result_buf = std::array<char, 32>{};
-  simde_mm_storeu_si128(reinterpret_cast<simde__m128i*>(result_buf.data()), result_vec);
+  simde_mm_storeu_si128(reinterpret_cast<simde__m128i*>(buffer), result_vec);
   
   // 11. 最後の文字（17バイト目）を個別に追加
   // hex_charsの位置11（最後のlo nibble）を抽出
   alignas(16) char temp_hex_storage[16];
   simde_mm_storeu_si128(reinterpret_cast<simde__m128i*>(temp_hex_storage), hex_chars);
-  result_buf[16] = temp_hex_storage[11];
+  buffer[16] = temp_hex_storage[11];
 
+  return 17;
+}
+
+/**
+ * @brief 48bit整数をMACアドレス文字列に変換する
+ *
+ * SIMDEを利用してAVX2命令を抽象化し、ARM環境でも動作するように実装
+ * 整数値から16進数文字列への変換をベクトル演算（SIMDE経由）で行います
+ *
+ * @tparam Options デリミタと大文字・小文字を指定するオプション（validate_delimitersとvalidate_hexは無視される）
+ * @param mac 48bit整数値（0x0000000000000000〜0x0000FFFFFFFFFFFF）
+ * @return std::string MACアドレス文字列 (例: "AA:BB:CC:DD:EE:FF" または "aa:bb:cc:dd:ee:ff")
+ */
+template <typename Options = parse_mac_options>
+[[nodiscard]]
+auto format_mac_address(std::uint64_t const mac) -> std::string {
+  auto result_buf = std::array<char, 17>{};
+  format_mac_address_to_buffer<Options>(mac, result_buf.data());
   return std::string{result_buf.data(), 17};
 }
 
