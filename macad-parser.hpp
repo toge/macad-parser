@@ -8,6 +8,7 @@
 #include <array>
 #include <cstring>
 #include <string>
+#include <type_traits>
 
 #include "simde/x86/avx2.h"
 
@@ -33,6 +34,63 @@ struct parse_mac_options_strict {
   static constexpr bool uppercase = true;
 };
 
+// Helper traits to provide default values for Options members
+namespace detail {
+  // Helper to check if a member exists and get its value or default
+  template <typename T, typename = void>
+  struct has_validate_delimiters : std::false_type {
+    static constexpr bool value = false;
+  };
+  
+  template <typename T>
+  struct has_validate_delimiters<T, std::void_t<decltype(T::validate_delimiters)>> : std::true_type {
+    static constexpr bool value = T::validate_delimiters;
+  };
+  
+  template <typename T, typename = void>
+  struct has_validate_hex : std::false_type {
+    static constexpr bool value = false;
+  };
+  
+  template <typename T>
+  struct has_validate_hex<T, std::void_t<decltype(T::validate_hex)>> : std::true_type {
+    static constexpr bool value = T::validate_hex;
+  };
+  
+  template <typename T, typename = void>
+  struct has_delimiter {
+    static constexpr char value = ':';
+  };
+  
+  template <typename T>
+  struct has_delimiter<T, std::void_t<decltype(T::delimiter)>> {
+    static constexpr char value = T::delimiter;
+  };
+  
+  template <typename T, typename = void>
+  struct has_uppercase {
+    static constexpr bool value = true;
+  };
+  
+  template <typename T>
+  struct has_uppercase<T, std::void_t<decltype(T::uppercase)>> {
+    static constexpr bool value = T::uppercase;
+  };
+  
+  // Helper variables for easier access
+  template <typename T>
+  inline constexpr bool validate_delimiters_v = has_validate_delimiters<T>::value;
+  
+  template <typename T>
+  inline constexpr bool validate_hex_v = has_validate_hex<T>::value;
+  
+  template <typename T>
+  inline constexpr char delimiter_v = has_delimiter<T>::value;
+  
+  template <typename T>
+  inline constexpr bool uppercase_v = has_uppercase<T>::value;
+}
+
 /**
  * @brief MACアドレスを示す文字列をパースして48bit整数に変換する
  *
@@ -54,7 +112,7 @@ auto parse_mac_address_unsafe(std::string_view const mac) noexcept -> std::optio
   auto const chunk = simde_mm256_loadu_si256(reinterpret_cast<simde__m256i const*>(mac.data()));
 
   // 2. デリミタの位置検証
-  if constexpr (Options::validate_delimiters) {
+  if constexpr (detail::validate_delimiters_v<Options>) {
     // デリミタの位置は 2,5,8,11,14 で、いずれも下位 128-bit lane 内に収まる
     auto const delim_idx = simde_mm256_setr_epi8(
       // clang-format off
@@ -65,7 +123,7 @@ auto parse_mac_address_unsafe(std::string_view const mac) noexcept -> std::optio
       // clang-format on
     );
     auto const delim_bytes = simde_mm256_shuffle_epi8(chunk, delim_idx);
-    auto const eq = simde_mm256_cmpeq_epi8(delim_bytes, simde_mm256_set1_epi8(Options::delimiter));
+    auto const eq = simde_mm256_cmpeq_epi8(delim_bytes, simde_mm256_set1_epi8(detail::delimiter_v<Options>));
     auto const mask = static_cast<unsigned>(simde_mm256_movemask_epi8(eq));
     if ((mask & 0x1Fu) != 0x1Fu) {
       return std::nullopt;
@@ -107,7 +165,7 @@ auto parse_mac_address_unsafe(std::string_view const mac) noexcept -> std::optio
   );
 
   // 5. 16進数の文字になっているのか検証
-  if constexpr (Options::validate_hex) {
+  if constexpr (detail::validate_hex_v<Options>) {
     auto const is_alpha = simde_mm256_and_si256(
         simde_mm256_cmpgt_epi8(upper_chars, simde_mm256_set1_epi8('A' - 1)),
         simde_mm256_cmpgt_epi8(simde_mm256_set1_epi8('F' + 1), upper_chars)
@@ -205,7 +263,7 @@ auto format_mac_address(std::uint64_t const mac) -> std::string {
 
   // 4. ニブル変換用のルックアップテーブルを作成
   // 16進数字への変換テーブル: 0-9 -> '0'-'9', 10-15 -> 'A'-'F' or 'a'-'f'
-  auto const hex_lut = Options::uppercase 
+  auto const hex_lut = detail::uppercase_v<Options> 
     ? simde_mm256_setr_epi8(
         // clang-format off
         '0', '1', '2', '3', '4', '5', '6', '7',
@@ -265,7 +323,7 @@ auto format_mac_address(std::uint64_t const mac) -> std::string {
   // 出力位置: 0,1,:,2,3,:,4,5,:,6,7,:,8,9,:,10,11
   // 128bitレジスタでは16バイトまでしか扱えないため、17バイト目は個別に処理
   
-  auto const delim = simde_mm_set1_epi8(Options::delimiter);
+  auto const delim = simde_mm_set1_epi8(detail::delimiter_v<Options>);
 
   auto const shuffle_with_delim = simde_mm_setr_epi8(
     // clang-format off
