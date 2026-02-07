@@ -9,6 +9,7 @@
 #include <cstring>
 #include <string>
 #include <type_traits>
+#include <concepts>
 
 #include "simde/x86/avx2.h"
 
@@ -41,14 +42,14 @@ namespace detail {
   struct has_validate_delimiters : std::bool_constant<false> {};
   
   template <typename T>
-    requires requires { T::validate_delimiters; }
+    requires requires { T::validate_delimiters; } && std::convertible_to<decltype(T::validate_delimiters), bool>
   struct has_validate_delimiters<T> : std::bool_constant<T::validate_delimiters> {};
   
   template <typename T>
   struct has_validate_hex : std::bool_constant<false> {};
   
   template <typename T>
-    requires requires { T::validate_hex; }
+    requires requires { T::validate_hex; } && std::convertible_to<decltype(T::validate_hex), bool>
   struct has_validate_hex<T> : std::bool_constant<T::validate_hex> {};
   
   template <typename T>
@@ -66,7 +67,7 @@ namespace detail {
   struct has_uppercase : std::bool_constant<true> {};
   
   template <typename T>
-    requires requires { T::uppercase; }
+    requires requires { T::uppercase; } && std::convertible_to<decltype(T::uppercase), bool>
   struct has_uppercase<T> : std::bool_constant<T::uppercase> {};
   
   // Helper variables for easier access
