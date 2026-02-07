@@ -126,9 +126,6 @@ auto const mac_str = macad_parser::format_mac_address<opt_lowercase>(0xAABBCCDDE
 // mac_str == "aa:bb:cc:dd:ee:ff"
 ```
 
-auto const v = macad_parser::parse_mac_address<opt_delimiter>("01-23-45-67-89-AB");
-```
-
 ## 形式と返り値
 
 - 入力: 先頭17文字が `XX?XX?XX?XX?XX?XX` 形式（`X`は16進、`?`はデリミタ）
