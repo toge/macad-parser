@@ -41,61 +41,60 @@ struct parse_mac_options_strict {
   static constexpr bool uppercase           = true;
 };
 
-// Helper traits to provide default values for Options members
+// Helper to provide default values for Options members
 namespace detail {
-  // Helper to check if a member exists and get its value or default
   template <typename T>
-  struct has_validate_delimiters : std::bool_constant<false> {};
-
-  template <typename T>
-    requires requires {
-      { T::validate_delimiters } -> std::convertible_to<bool>;
-    }
-  struct has_validate_delimiters<T> : std::bool_constant<T::validate_delimiters> {};
-
-  template <typename T>
-  struct has_validate_hex : std::bool_constant<false> {};
-
-  template <typename T>
-    requires requires {
-      { T::validate_hex } -> std::convertible_to<bool>;
-    }
-  struct has_validate_hex<T> : std::bool_constant<T::validate_hex> {};
-
-  template <typename T>
-  struct has_delimiter {
-    static constexpr char value = ':';
+  concept HasValidateDelimiters = requires {
+    { T::validate_delimiters } -> std::convertible_to<bool>;
   };
-
-  template <typename T>
-    requires requires {
-      { T::delimiter } -> std::convertible_to<char>;
-    }
-  struct has_delimiter<T> {
-    static constexpr char value = T::delimiter;
-  };
-
-  template <typename T>
-  struct has_uppercase : std::bool_constant<true> {};
-
-  template <typename T>
-    requires requires {
-      { T::uppercase } -> std::convertible_to<bool>;
-    }
-  struct has_uppercase<T> : std::bool_constant<T::uppercase> {};
 
   // Helper variables for easier access
   template <typename T>
-  inline constexpr bool validate_delimiters_v = has_validate_delimiters<T>::value;
+  inline constexpr bool validate_delimiters_v = [] {
+    if constexpr (HasValidateDelimiters<T>) {
+      return static_cast<bool>(T::validate_delimiters);
+    }
+    return false;
+  }();
 
   template <typename T>
-  inline constexpr bool validate_hex_v = has_validate_hex<T>::value;
+  concept HasValidateHex = requires {
+    { T::validate_hex } -> std::convertible_to<bool>;
+  };
 
   template <typename T>
-  inline constexpr char delimiter_v = has_delimiter<T>::value;
+  inline constexpr bool validate_hex_v = [] {
+    if constexpr (HasValidateHex<T>) {
+      return static_cast<bool>(T::validate_hex);
+    }
+    return false;
+  }();
 
   template <typename T>
-  inline constexpr bool uppercase_v = has_uppercase<T>::value;
+  concept HasDelimiter = requires {
+    { T::delimiter } -> std::convertible_to<char>;
+  };
+
+  template <typename T>
+  inline constexpr char delimiter_v = [] {
+    if constexpr (HasDelimiter<T>) {
+      return static_cast<char>(T::delimiter);
+    }
+    return ':';
+  }();
+
+  template <typename T>
+  concept HasUppercase = requires {
+    { T::uppercase } -> std::convertible_to<bool>;
+  };
+
+  template <typename T>
+  inline constexpr bool uppercase_v = [] {
+    if constexpr (HasUppercase<T>) {
+      return static_cast<bool>(T::uppercase);
+    }
+    return true;
+  }();
 }  // namespace detail
 
 /**
@@ -122,12 +121,12 @@ auto parse_mac_address_unsafe(std::string_view const mac) noexcept -> std::optio
   if constexpr (detail::validate_delimiters_v<Options>) {
     // デリミタの位置は 2,5,8,11,14 で、いずれも下位 128-bit lane 内に収まる
     auto const delim_idx = simde_mm256_setr_epi8(
-        // clang-format off
+      // clang-format off
          2,    5,    8,   11,   14, -128, -128, -128,
       -128, -128, -128, -128, -128, -128, -128, -128,
-      -128, -128, -128, -128, -128, -128,  -128,  -128,
-       -128,  -128,  -128,  -128,  -128,  -128,  -128,  -128
-        // clang-format on
+      -128, -128, -128, -128, -128, -128, -128, -128,
+      -128, -128, -128, -128, -128, -128, -128, -128
+      // clang-format on
     );
     auto const delim_bytes = simde_mm256_shuffle_epi8(chunk, delim_idx);
     auto const eq          = simde_mm256_cmpeq_epi8(delim_bytes, simde_mm256_set1_epi8(detail::delimiter_v<Options>));
@@ -142,22 +141,22 @@ auto parse_mac_address_unsafe(std::string_view const mac) noexcept -> std::optio
   // 元データの index 16 (17文字目) は上位lane(オフセット16)にあるため、上位laneを下位に
   // 持ってきて必要な1バイトだけ抽出し、下位laneで作った11バイトと合成する
   auto const shuffle_idx_lo = simde_mm256_setr_epi8(
-      // clang-format off
+    // clang-format off
      0,  1,  3,    4,  6,  7,  9, 10,
     12, 13, 15, -128, -1, -1, -1, -1,
-    -1, -1, -1,   -1, -1, -1,  -1,  -1,
-     -1,  -1,  -1,    -1,  -1,  -1,  -1,  -1
-      // clang-format on
+    -1, -1, -1,   -1, -1, -1, -1, -1,
+    -1, -1, -1,   -1, -1, -1, -1, -1
+    // clang-format on
   );
   auto const hex_chars_lo   = simde_mm256_shuffle_epi8(chunk, shuffle_idx_lo);
   auto const chunk_hi       = simde_mm256_permute2x128_si256(chunk, chunk, 0x11);
   auto const shuffle_idx_hi = simde_mm256_setr_epi8(
-      // clang-format off
+    // clang-format off
     -128, -128, -128, -128, -128, -128, -128, -128,
     -128, -128, -128,    0,   -1,   -1,   -1,   -1,
-      -1,   -1,   -1,   -1,   -1,   -1,    -1,    -1,
-       -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1
-      // clang-format on
+      -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1,
+      -1,   -1,   -1,   -1,   -1,   -1,   -1,   -1
+    // clang-format on
   );
   auto const hex_chars_hi = simde_mm256_shuffle_epi8(chunk_hi, shuffle_idx_hi);
   auto const hex_chars    = simde_mm256_or_si256(hex_chars_lo, hex_chars_hi);
@@ -193,12 +192,12 @@ auto parse_mac_address_unsafe(std::string_view const mac) noexcept -> std::optio
   // 7. 48bit整数をレジスタ内でパッキング
   // packed_16の各16bit要素の下位バイトを抽出して前方に詰める
   auto const final_shuffle = simde_mm256_setr_epi8(
-      // clang-format off
+    // clang-format off
       0,  2,  4,  6,  8, 10, -1, -1,
      -1, -1, -1, -1, -1, -1, -1, -1,
-     -1, -1, -1, -1, -1, -1,  -1,  -1,
-      -1,  -1,  -1,  -1,  -1,  -1,  -1,  -1
-      // clang-format on
+     -1, -1, -1, -1, -1, -1, -1, -1,
+     -1, -1, -1, -1, -1, -1, -1, -1
+    // clang-format on
   );
 
   auto const mac_vector = simde_mm256_shuffle_epi8(packed_16, final_shuffle);
@@ -265,22 +264,24 @@ auto format_mac_address_to_buffer(std::uint64_t const mac, std::span<char, MAC_A
 
   // 4. ニブル変換用のルックアップテーブルを作成
   // 16進数字への変換テーブル: 0-9 -> '0'-'9', 10-15 -> 'A'-'F' or 'a'-'f'
-  auto const hex_lut = detail::uppercase_v<Options> ? simde_mm256_setr_epi8(
-                                                          // clang-format off
-        '0', '1', '2', '3', '4', '5', '6', '7',
-        '8', '9', 'A', 'B', 'C', 'D', 'E', 'F',
-        '0', '1', '2', '3', '4', '5', '6', '7',
-        '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'
-                                                          // clang-format on
-                                                          )
-                                                    : simde_mm256_setr_epi8(
-                                                          // clang-format off
-        '0', '1', '2', '3', '4', '5', '6', '7',
-        '8', '9', 'a', 'b', 'c', 'd', 'e', 'f',
-        '0', '1', '2', '3', '4', '5', '6', '7',
-        '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'
-                                                          // clang-format on
-                                                      );
+  auto const hex_lut = detail::uppercase_v<Options> ? 
+    simde_mm256_setr_epi8(
+      // clang-format off
+      '0', '1', '2', '3', '4', '5', '6', '7',
+      '8', '9', 'A', 'B', 'C', 'D', 'E', 'F',
+      '0', '1', '2', '3', '4', '5', '6', '7',
+      '8', '9', 'A', 'B', 'C', 'D', 'E', 'F'
+      // clang-format on
+    )
+    : 
+    simde_mm256_setr_epi8(
+      // clang-format off
+      '0', '1', '2', '3', '4', '5', '6', '7',
+      '8', '9', 'a', 'b', 'c', 'd', 'e', 'f',
+      '0', '1', '2', '3', '4', '5', '6', '7',
+      '8', '9', 'a', 'b', 'c', 'd', 'e', 'f'
+      // clang-format on
+    );
 
   // 5. 各バイトを上位/下位ニブルに分離
   // 上位ニブルは右に4シフトするが、16bit境界を越えないように先にマスク
@@ -298,16 +299,16 @@ auto format_mac_address_to_buffer(std::uint64_t const mac, std::span<char, MAC_A
 
   // シャッフルで配置: hi を偶数位置に、lo を奇数位置に
   auto const shuffle_hi = simde_mm_setr_epi8(
-      // clang-format off
+    // clang-format off
      0, -1,  1, -1,  2, -1,  3, -1,
      4, -1,  5, -1, -1, -1, -1, -1
-      // clang-format on
+    // clang-format on
   );
   auto const shuffle_lo = simde_mm_setr_epi8(
-      // clang-format off
+    // clang-format off
     -1,  0, -1,  1, -1,  2, -1,  3,
     -1,  4, -1,  5, -1, -1, -1, -1
-      // clang-format on
+    // clang-format on
   );
 
   auto const hi_positioned = simde_mm_shuffle_epi8(hi_chars_128, shuffle_hi);
@@ -324,10 +325,10 @@ auto format_mac_address_to_buffer(std::uint64_t const mac, std::span<char, MAC_A
   auto const delim = simde_mm_set1_epi8(detail::delimiter_v<Options>);
 
   auto const shuffle_with_delim = simde_mm_setr_epi8(
-      // clang-format off
+    // clang-format off
      0,  1, -1,  2,  3, -1,  4,  5,
     -1,  6,  7, -1,  8,  9, -1, 10
-      // clang-format on
+    // clang-format on
   );
 
   auto const formatted = simde_mm_shuffle_epi8(hex_chars, shuffle_with_delim);
@@ -335,10 +336,10 @@ auto format_mac_address_to_buffer(std::uint64_t const mac, std::span<char, MAC_A
   // 9. デリミタの位置にデリミタ文字をブレンド
   // デリミタ位置は 2, 5, 8, 11, 14
   auto const delim_mask = simde_mm_setr_epi8(
-      // clang-format off
+    // clang-format off
      0,  0, -1,  0,  0, -1,  0,  0,
     -1,  0,  0, -1,  0,  0, -1,  0
-      // clang-format on
+    // clang-format on
   );
 
   auto const result_vec = simde_mm_blendv_epi8(formatted, delim, delim_mask);
