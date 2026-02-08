@@ -4,37 +4,37 @@
 
 #include "macad-parser.hpp"
 
-// Test with only delimiter defined - all other members should use defaults
+// デリミタ定義のみの定義 - 他のメンバはデフォルト値を使用
 struct opt_only_delimiter {
   static constexpr char delimiter = '-';
 };
 
-// Test with only uppercase defined - all other members should use defaults
+// 大文字小文字の定義のみ - 他のメンバはデフォルト値を使用
 struct opt_only_uppercase {
   static constexpr bool uppercase = false;
 };
 
-// Test with only validate_delimiters defined - all other members should use defaults
+// デリミタ検証の定義のみ - 他のメンバはデフォルト値を使用
 struct opt_only_validate_delimiters {
   static constexpr bool validate_delimiters = true;
 };
 
-// Test with only validate_hex defined - all other members should use defaults
+// 16進数文字の検証の定義のみ - 他のメンバはデフォルト値を使用
 struct opt_only_validate_hex {
   static constexpr bool validate_hex = true;
 };
 
-// Test with empty struct - all members should use defaults
+// 空の構造体 - 全てのメンバはデフォルト値を使用
 struct opt_empty {
 };
 
-// Test with two members defined
+// 2つのメンバが定義された構造体
 struct opt_delimiter_and_uppercase {
   static constexpr char delimiter = '-';
   static constexpr bool uppercase = false;
 };
 
-// Test with validate_delimiters and delimiter
+// デリミタ検証とデリミタの定義がある構造体
 struct opt_validate_and_delimiter {
   static constexpr bool validate_delimiters = true;
   static constexpr char delimiter = '-';
@@ -43,7 +43,7 @@ struct opt_validate_and_delimiter {
 TEST_CASE("partial options - only delimiter defined") {
   SECTION("parse with custom delimiter") {
     auto const a = std::string{"01-23-45-67-89-AB"};
-    // Should parse without validation (validate_delimiters defaults to false)
+    // 検証なしのパース
     auto const result = macad_parser::parse_mac_address<opt_only_delimiter>(a);
     REQUIRE(result.has_value());
     REQUIRE(result.value() == 0x0123456789AB);
@@ -52,7 +52,7 @@ TEST_CASE("partial options - only delimiter defined") {
   SECTION("format with custom delimiter") {
     auto const mac = 0xAABBCCDDEEFFull;
     auto const result = macad_parser::format_mac_address<opt_only_delimiter>(mac);
-    // Should use dash delimiter and uppercase (default is true)
+    // -デリミタと大文字使用の指定
     REQUIRE(result == "AA-BB-CC-DD-EE-FF");
   }
 }
@@ -60,7 +60,7 @@ TEST_CASE("partial options - only delimiter defined") {
 TEST_CASE("partial options - only uppercase defined") {
   SECTION("parse with default delimiter") {
     auto const a = std::string{"AA:BB:CC:DD:EE:FF"};
-    // Should parse with default delimiter ':'
+    // デフォルトのデリミタ ':' でパース
     auto const result = macad_parser::parse_mac_address<opt_only_uppercase>(a);
     REQUIRE(result.has_value());
     REQUIRE(result.value() == 0xAABBCCDDEEFF);
@@ -69,7 +69,7 @@ TEST_CASE("partial options - only uppercase defined") {
   SECTION("format with lowercase") {
     auto const mac = 0xAABBCCDDEEFFull;
     auto const result = macad_parser::format_mac_address<opt_only_uppercase>(mac);
-    // Should use default delimiter ':' and lowercase
+    // デフォルトのデリミタ ':' と小文字を使用
     REQUIRE(result == "aa:bb:cc:dd:ee:ff");
   }
 }
@@ -84,7 +84,7 @@ TEST_CASE("partial options - only validate_delimiters defined") {
 
   SECTION("rejects invalid delimiters") {
     auto const a = std::string{"01-23-45-67-89-AB"};
-    // Should validate delimiter (which defaults to ':')
+    // デリミタ検証を行う（デフォルトは ':'）
     auto const result = macad_parser::parse_mac_address<opt_only_validate_delimiters>(a);
     REQUIRE_FALSE(result.has_value());
   }
@@ -92,7 +92,7 @@ TEST_CASE("partial options - only validate_delimiters defined") {
   SECTION("format with defaults") {
     auto const mac = 0xAABBCCDDEEFFull;
     auto const result = macad_parser::format_mac_address<opt_only_validate_delimiters>(mac);
-    // Should use defaults: ':' and uppercase
+    // デフォルトのデリミタ ':' と大文字を使用
     REQUIRE(result == "AA:BB:CC:DD:EE:FF");
   }
 }
@@ -114,7 +114,7 @@ TEST_CASE("partial options - only validate_hex defined") {
   SECTION("format with defaults") {
     auto const mac = 0xAABBCCDDEEFFull;
     auto const result = macad_parser::format_mac_address<opt_only_validate_hex>(mac);
-    // Should use defaults: ':' and uppercase
+    // デフォルトのデリミタ ':' と大文字を使用
     REQUIRE(result == "AA:BB:CC:DD:EE:FF");
   }
 }
@@ -129,7 +129,7 @@ TEST_CASE("partial options - empty struct uses all defaults") {
 
   SECTION("parse accepts invalid delimiters (no validation)") {
     auto const a = std::string{"01-23-45-67-89-AB"};
-    // Should accept since validate_delimiters defaults to false
+    // 検証なしのパース
     auto const result = macad_parser::parse_mac_address<opt_empty>(a);
     REQUIRE(result.has_value());
   }
@@ -137,7 +137,7 @@ TEST_CASE("partial options - empty struct uses all defaults") {
   SECTION("format with all defaults") {
     auto const mac = 0xAABBCCDDEEFFull;
     auto const result = macad_parser::format_mac_address<opt_empty>(mac);
-    // Should use defaults: ':' and uppercase
+    // デフォルトのデリミタ ':' と大文字を使用
     REQUIRE(result == "AA:BB:CC:DD:EE:FF");
   }
 }

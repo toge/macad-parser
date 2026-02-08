@@ -10,13 +10,13 @@
 #include "macad-parser.hpp"
 
 // ============================================================================
-// Naive implementations (baseline - no SIMD)
+// ベースラインとなるSIMDを使わないナイーブな実装
 // ============================================================================
 
 namespace naive {
 
 /**
- * @brief ナイーブな実装: MACアドレス文字列を48bit整数にパース (標準ライブラリのみ)
+ * @brief ナイーブな実装: MACアドレス文字列を48bit整数にパース
  * 
  * SIMD命令を使わず、標準ライブラリのみで実装したベースライン
  * 
@@ -39,8 +39,8 @@ auto parse_mac_address(
 
   // デリミタの位置検証
   if (validate_delimiters) {
-    if (mac[2] != delimiter || mac[5] != delimiter || 
-        mac[8] != delimiter || mac[11] != delimiter || mac[14] != delimiter) {
+    if (mac[2] != delimiter or mac[5] != delimiter or 
+        mac[8] != delimiter or mac[11] != delimiter or mac[14] != delimiter) {
       return std::nullopt;
     }
   }
@@ -49,7 +49,7 @@ auto parse_mac_address(
   
   // 各バイトをパース
   auto const parse_hex_pair = [&](std::size_t const idx) -> std::optional<std::uint8_t> {
-    auto const hi_char = mac[idx];
+    auto const hi_char = mac[idx + 0];
     auto const lo_char = mac[idx + 1];
 
     // 大文字に変換
@@ -59,16 +59,16 @@ auto parse_mac_address(
     // 16進数文字の検証
     if (validate_hex) {
       auto const is_hex = [](char const c) {
-        return (c >= '0' && c <= '9') || (c >= 'A' && c <= 'F');
+        return (c >= '0' and c <= '9') or (c >= 'A' and c <= 'F');
       };
-      if (!is_hex(hi_upper) || !is_hex(lo_upper)) {
+      if (!is_hex(hi_upper) or !is_hex(lo_upper)) {
         return std::nullopt;
       }
     }
 
     // 16進数文字を数値に変換
     auto const hex_to_value = [](char const c) -> std::uint8_t {
-      if (c >= '0' && c <= '9') {
+      if (c >= '0' and c <= '9') {
         return static_cast<std::uint8_t>(c - '0');
       }
       return static_cast<std::uint8_t>(c - 'A' + 10);
@@ -76,7 +76,6 @@ auto parse_mac_address(
 
     auto const hi_val = hex_to_value(hi_upper);
     auto const lo_val = hex_to_value(lo_upper);
-
     return static_cast<std::uint8_t>((hi_val << 4) | lo_val);
   };
 
@@ -89,12 +88,11 @@ auto parse_mac_address(
     }
     result = (result << 8) | byte_val.value();
   }
-
   return result;
 }
 
 /**
- * @brief ナイーブな実装: 48bit整数をMACアドレス文字列にフォーマット (標準ライブラリのみ)
+ * @brief ナイーブな実装: 48bit整数をMACアドレス文字列にフォーマット
  * 
  * SIMD命令を使わず、標準ライブラリのみで実装したベースライン
  * 
@@ -110,18 +108,16 @@ auto format_mac_address(
   char const delimiter = ':'
 ) -> std::string {
   auto const mac_48 = mac & 0xFFFFFFFFFFFFull;
-  
-  std::string result(17, '\0');
-  
   auto const hex_chars = uppercase ? "0123456789ABCDEF" : "0123456789abcdef";
   
   // 6バイト分フォーマット
+  auto result = std::string(17, '\0');
   for (std::size_t i = 0; i < 6; ++i) {
     auto const byte_pos = 5 - i;
     auto const byte_val = static_cast<std::uint8_t>((mac_48 >> (byte_pos * 8)) & 0xFF);
     
     auto const str_pos = i * 3;
-    result[str_pos] = hex_chars[byte_val >> 4];
+    result[str_pos + 0] = hex_chars[byte_val >> 4];
     result[str_pos + 1] = hex_chars[byte_val & 0x0F];
     
     if (i < 5) {
@@ -139,11 +135,11 @@ auto format_mac_address(
 // ============================================================================
 
 // テスト用のMACアドレス
-static constexpr auto TEST_MAC_STR = "AA:BB:CC:DD:EE:FF";
+static constexpr auto TEST_MAC_STR = "AA:BB:CC:DD:EE:FF               "; // 32byte確保
 static constexpr auto TEST_MAC_VAL = 0xAABBCCDDEEFFull;
 
 // ============================================================================
-// Option Structs for Benchmarks
+// ベンチマーク用のOption
 // ============================================================================
 
 struct opt_lowercase {
@@ -182,7 +178,6 @@ struct opt_hex_only {
 // ============================================================================
 
 TEST_CASE("Benchmark: parse_mac_address", "[benchmark]") {
-  
   BENCHMARK("parse (default options - no validation)") {
     return macad_parser::parse_mac_address(TEST_MAC_STR);
   };
@@ -192,18 +187,11 @@ TEST_CASE("Benchmark: parse_mac_address", "[benchmark]") {
   };
 
   BENCHMARK("parse unsafe (default options - no validation)") {
-    // 32byte aligned buffer for safe AVX2 load
-    auto buf = std::array<char, 32>{};
-    std::memcpy(buf.data(), TEST_MAC_STR, 17);
-    return macad_parser::parse_mac_address_unsafe(std::string_view{buf.data(), 17});
+    return macad_parser::parse_mac_address_unsafe(std::string_view{TEST_MAC_STR, 17});
   };
 
   BENCHMARK("parse unsafe (strict options - with validation)") {
-    auto buf = std::array<char, 32>{};
-    std::memcpy(buf.data(), TEST_MAC_STR, 17);
-    return macad_parser::parse_mac_address_unsafe<macad_parser::parse_mac_options_strict>(
-      std::string_view{buf.data(), 17}
-    );
+    return macad_parser::parse_mac_address_unsafe<macad_parser::parse_mac_options_strict>(std::string_view{TEST_MAC_STR, 17});
   };
 
   BENCHMARK("parse naive (no validation) - baseline") {
@@ -220,7 +208,6 @@ TEST_CASE("Benchmark: parse_mac_address", "[benchmark]") {
 // ============================================================================
 
 TEST_CASE("Benchmark: format_mac_address", "[benchmark]") {
-  
   BENCHMARK("format (uppercase, default delimiter)") {
     return macad_parser::format_mac_address(TEST_MAC_VAL);
   };
@@ -264,6 +251,24 @@ TEST_CASE("Benchmark: round-trip (parse + format)", "[benchmark]") {
     return std::string{};
   };
 
+  BENCHMARK("round-trip SIMD unsafe (default options)") {
+    auto const parsed = macad_parser::parse_mac_address_unsafe(std::string_view{TEST_MAC_STR, 17});
+    if (parsed) {
+      return macad_parser::format_mac_address(parsed.value());
+    }
+    return std::string{};
+  };
+
+  BENCHMARK("round-trip SIMD unsafe (strict options)") {
+    auto const parsed = macad_parser::parse_mac_address_unsafe<macad_parser::parse_mac_options_strict>(
+      std::string_view{TEST_MAC_STR, 17}
+    );
+    if (parsed) {
+      return macad_parser::format_mac_address(parsed.value());
+    }
+    return std::string{};
+  };
+
   BENCHMARK("round-trip naive - baseline") {
     auto const parsed = naive::parse_mac_address(TEST_MAC_STR, false, false, ':');
     if (parsed) {
@@ -274,49 +279,30 @@ TEST_CASE("Benchmark: round-trip (parse + format)", "[benchmark]") {
 }
 
 // ============================================================================
-// Options Comparison Benchmarks
+// Optionsによる処理速度比較 Benchmarks
 // ============================================================================
 
 TEST_CASE("Benchmark: validate_delimiters impact", "[benchmark]") {
-  
   BENCHMARK("parse without delimiter validation") {
-    auto buf = std::array<char, 32>{};
-    std::memcpy(buf.data(), TEST_MAC_STR, 17);
-    return macad_parser::parse_mac_address_unsafe<opt_no_validation>(
-      std::string_view{buf.data(), 17}
-    );
+    return macad_parser::parse_mac_address_unsafe<opt_no_validation>(std::string_view{TEST_MAC_STR, 17});
   };
 
   BENCHMARK("parse with delimiter validation") {
-    auto buf = std::array<char, 32>{};
-    std::memcpy(buf.data(), TEST_MAC_STR, 17);
-    return macad_parser::parse_mac_address_unsafe<opt_delimiter_only>(
-      std::string_view{buf.data(), 17}
-    );
+    return macad_parser::parse_mac_address_unsafe<opt_delimiter_only>(std::string_view{TEST_MAC_STR, 17});
   };
 }
 
 TEST_CASE("Benchmark: validate_hex impact", "[benchmark]") {
-  
   BENCHMARK("parse without hex validation") {
-    auto buf = std::array<char, 32>{};
-    std::memcpy(buf.data(), TEST_MAC_STR, 17);
-    return macad_parser::parse_mac_address_unsafe<opt_no_validation>(
-      std::string_view{buf.data(), 17}
-    );
+    return macad_parser::parse_mac_address_unsafe<opt_no_validation>(std::string_view{TEST_MAC_STR, 17});
   };
 
   BENCHMARK("parse with hex validation") {
-    auto buf = std::array<char, 32>{};
-    std::memcpy(buf.data(), TEST_MAC_STR, 17);
-    return macad_parser::parse_mac_address_unsafe<opt_hex_only>(
-      std::string_view{buf.data(), 17}
-    );
+    return macad_parser::parse_mac_address_unsafe<opt_hex_only>(std::string_view{TEST_MAC_STR, 17});
   };
 }
 
 TEST_CASE("Benchmark: uppercase vs lowercase formatting", "[benchmark]") {
-  
   BENCHMARK("format with uppercase") {
     return macad_parser::format_mac_address<opt_uppercase>(TEST_MAC_VAL);
   };
@@ -327,7 +313,6 @@ TEST_CASE("Benchmark: uppercase vs lowercase formatting", "[benchmark]") {
 }
 
 TEST_CASE("Benchmark: delimiter comparison", "[benchmark]") {
-  
   BENCHMARK("format with colon delimiter") {
     return macad_parser::format_mac_address<opt_colon>(TEST_MAC_VAL);
   };

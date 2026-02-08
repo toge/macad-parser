@@ -138,7 +138,16 @@ TEST_CASE("round-trip conversion") {
 
   SECTION("round-trip with various values") {
     std::vector<std::uint64_t> test_values = {
-        0x000000000000ull, 0x000000000001ull, 0x0000000000FFull, 0x00000000FFFFull, 0x000000FFFFFFull, 0x0000FFFFFFFFull, 0x00FFFFFFFFFFull, 0xFFFFFFFFFFFFull, 0x123456789ABCull, 0xFEDCBA987654ull,
+      0x000000000000ull,
+      0x000000000001ull,
+      0x0000000000FFull,
+      0x00000000FFFFull,
+      0x000000FFFFFFull,
+      0x0000FFFFFFFFull,
+      0x00FFFFFFFFFFull,
+      0xFFFFFFFFFFFFull,
+      0x123456789ABCull,
+      0xFEDCBA987654ull,
     };
 
     for (auto const& val : test_values) {
@@ -255,7 +264,12 @@ TEST_CASE("format_mac_address_to_buffer various patterns") {
 TEST_CASE("format_mac_address delegates to format_mac_address_to_buffer") {
   SECTION("same results as buffer version") {
     std::vector<std::uint64_t> test_values = {
-        0x000000000000ull, 0xAABBCCDDEEFFull, 0x0123456789ABull, 0xFFFFFFFFFFFFull, 0x112233445566ull, 0xFEDCBA987654ull,
+      0x000000000000ull,
+      0xAABBCCDDEEFFull,
+      0x0123456789ABull,
+      0xFFFFFFFFFFFFull,
+      0x112233445566ull,
+      0xFEDCBA987654ull,
     };
 
     for (auto const& val : test_values) {
