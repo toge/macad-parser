@@ -28,6 +28,43 @@ cmake --build build
 ./build/test/all_test
 ```
 
+## ベンチマーク
+
+Catch2のベンチマーク機能を使用して、各オプション指定による処理速度の違いを計測できます。
+
+```sh
+# ベンチマークのみ実行
+./build/test/all_test "[benchmark]"
+
+# ベンチマーク設定のカスタマイズ
+./build/test/all_test "[benchmark]" --benchmark-samples 100 --benchmark-resamples 10000
+```
+
+### ベンチマーク内容
+
+- **parse_mac_address**: 各種オプション設定でのパース性能比較
+  - デフォルトオプション（検証なし）
+  - 厳密オプション（検証あり）
+  - ナイーブ実装（SIMD不使用のベースライン）
+- **format_mac_address**: 各種オプション設定でのフォーマット性能比較
+  - 大文字/小文字
+  - デリミタ（コロン/ハイフン）
+  - ナイーブ実装（SIMD不使用のベースライン）
+- **validate_delimiters impact**: デリミタ検証の有無による性能差
+- **validate_hex impact**: 16進数検証の有無による性能差
+- **round-trip**: パースとフォーマットの組み合わせ性能
+
+### 性能の目安
+
+一般的な環境での測定結果（参考値）:
+
+- **パース性能**: SIMD実装は約16ns、ナイーブ実装は約18-22ns
+- **フォーマット性能**: SIMD実装は約13-18ns、ナイーブ実装は約19-25ns
+- **検証オーバーヘッド**: 
+  - `validate_delimiters`: 約0.5ns
+  - `validate_hex`: 約0.4ns
+- **SIMD vs ナイーブ**: SIMD実装は約1.1-1.5倍高速
+
 ## 使い方
 
 `macad-parser.hpp` をインクルードして使用します。
