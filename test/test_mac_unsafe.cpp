@@ -40,6 +40,43 @@ TEST_CASE("mac address parser (strict validation)") {
   }
 }
 
+TEST_CASE("mac address parser (invalid input)") {
+  SECTION("rejects empty string (size < 17)") {
+    auto const result = macad_parser::parse_mac_address_unsafe(std::string_view{""});
+    REQUIRE_FALSE(result.has_value());
+  }
+
+  SECTION("rejects single character (size < 17)") {
+    auto const result = macad_parser::parse_mac_address_unsafe(std::string_view{"A"});
+    REQUIRE_FALSE(result.has_value());
+  }
+
+  SECTION("rejects string shorter than 17 chars (size < 17)") {
+    auto const result = macad_parser::parse_mac_address_unsafe(std::string_view{"AA:BB:CC"});
+    REQUIRE_FALSE(result.has_value());
+  }
+
+  SECTION("rejects string of exactly 16 chars (one short)") {
+    auto const result = macad_parser::parse_mac_address_unsafe(std::string_view{"AA:BB:CC:DD:EE:F"});
+    REQUIRE_FALSE(result.has_value());
+  }
+
+  SECTION("rejects all non-hex characters with strict validation") {
+    auto const result = macad_parser::parse_mac_address_unsafe<macad_parser::parse_mac_options_strict>(std::string_view{"GG:HH:II:JJ:KK:LL               "});
+    REQUIRE_FALSE(result.has_value());
+  }
+
+  SECTION("rejects hex without delimiters with strict delimiter validation") {
+    auto const result = macad_parser::parse_mac_address_unsafe<macad_parser::parse_mac_options_strict>(std::string_view{"AABBCCDDEEFF00000                "});
+    REQUIRE_FALSE(result.has_value());
+  }
+
+  SECTION("rejects spaces as delimiter with strict validation") {
+    auto const result = macad_parser::parse_mac_address_unsafe<macad_parser::parse_mac_options_strict>(std::string_view{"AA BB CC DD EE FF               "});
+    REQUIRE_FALSE(result.has_value());
+  }
+}
+
 struct opt_delimiter : public macad_parser::parse_mac_options_strict {
   static constexpr char delimiter = '-';
 };
