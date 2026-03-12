@@ -95,6 +95,27 @@ namespace detail {
     }
     return true;
   }();
+
+  /**
+   * @brief 16進数文字を数値に変換する (constexpr用ヘルパー)
+   * @return 0-15 の整数値、無効文字の場合は -1
+   */
+  [[nodiscard]] constexpr auto hex_char_to_val(char c) noexcept -> int {
+    if (c >= '0' && c <= '9') return c - '0';
+    if (c >= 'a' && c <= 'f') return c - 'a' + 10;
+    if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+    return -1;
+  }
+
+  /**
+   * @brief ニブル値を16進数文字に変換する (constexpr用ヘルパー)
+   * @param v 0-15 の整数値
+   * @param uppercase 大文字にするかどうか
+   */
+  [[nodiscard]] constexpr auto nibble_to_hex(int v, bool uppercase) noexcept -> char {
+    if (v < 10) return static_cast<char>('0' + v);
+    return static_cast<char>((uppercase ? 'A' : 'a') + (v - 10));
+  }
 }  // namespace detail
 
 /**
@@ -211,9 +232,10 @@ auto parse_mac_address_unsafe(std::string_view const mac) noexcept -> std::optio
 }
 
 /**
- * @brief 安全版MACアドレスパーサ
+ * @brief 安全版MACアドレスパーサ (constexpr対応)
  *
- * 入力文字列が32byte未満の場合にバッファオーバーランを防止するためのラッパー
+ * 入力文字列が32byte未満の場合にバッファオーバーランを防止するためのラッパー。
+ * 定数評価コンテキストでは純粋なC++実装を使用し、実行時はSIMD実装を使用する。
  *
  * @tparam Options パースの仕方を指定するオプション
  * @param mac_str パース対象のMACアドレス文字列 (例: "AA:BB:CC:DD:EE:FF")
@@ -221,17 +243,43 @@ auto parse_mac_address_unsafe(std::string_view const mac) noexcept -> std::optio
  */
 template <typename Options = parse_mac_options>
 [[nodiscard]]
-auto parse_mac_address(std::string_view const mac) noexcept -> std::optional<std::uint64_t> {
+constexpr auto parse_mac_address(std::string_view const mac) noexcept -> std::optional<std::uint64_t> {
   if (mac.size() < 17) {
     return std::nullopt;
   }
 
-  // 256bitのロードは入力長(17)を越えるため、ゼロ埋めバッファにコピーしてからロードする
-  auto       buf      = std::array<char, 32>{};
-  auto const copy_len = (mac.size() < buf.size()) ? mac.size() : buf.size();
-  std::memcpy(buf.data(), mac.data(), copy_len);
+  if consteval {
+    // 定数評価コンテキスト: 純粋なC++実装
+    if constexpr (detail::validate_delimiters_v<Options>) {
+      for (int pos : {2, 5, 8, 11, 14}) {
+        if (mac[static_cast<std::size_t>(pos)] != detail::delimiter_v<Options>) {
+          return std::nullopt;
+        }
+      }
+    }
 
-  return parse_mac_address_unsafe<Options>(std::string_view{buf.data(), copy_len});
+    std::uint64_t result = 0;
+    for (int i = 0; i < 6; ++i) {
+      auto const offset = static_cast<std::size_t>(i * 3);
+      int const  hi     = detail::hex_char_to_val(mac[offset]);
+      int const  lo     = detail::hex_char_to_val(mac[offset + 1]);
+      if constexpr (detail::validate_hex_v<Options>) {
+        if (hi < 0 || lo < 0) {
+          return std::nullopt;
+        }
+      }
+      // 下位4bitのマスクは validate_hex が無効な場合の無効文字 (-1) の影響を防ぐ
+      result = (result << 8) | (static_cast<std::uint64_t>(hi & 0xF) << 4) | static_cast<std::uint64_t>(lo & 0xF);
+    }
+    return result;
+  } else {
+    // 実行時: SIMDを使った高速実装
+    // 256bitのロードは入力長(17)を越えるため、ゼロ埋めバッファにコピーしてからロードする
+    auto       buf      = std::array<char, 32>{};
+    auto const copy_len = (mac.size() < buf.size()) ? mac.size() : buf.size();
+    std::memcpy(buf.data(), mac.data(), copy_len);
+    return parse_mac_address_unsafe<Options>(std::string_view{buf.data(), copy_len});
+  }
 }
 
 /**
@@ -357,10 +405,11 @@ auto format_mac_address_to_buffer(std::uint64_t const mac, std::span<char, MAC_A
 }
 
 /**
- * @brief 48bit整数をMACアドレス文字列に変換する
+ * @brief 48bit整数をMACアドレス文字列に変換する (constexpr対応)
  *
  * SIMDEを利用してAVX2命令を抽象化し、ARM環境でも動作するように実装
- * 整数値から16進数文字列への変換をベクトル演算（SIMDE経由）で行います
+ * 整数値から16進数文字列への変換をベクトル演算（SIMDE経由）で行います。
+ * 定数評価コンテキストでは純粋なC++実装を使用し、実行時はSIMD実装を使用する。
  *
  * @tparam Options デリミタと大文字・小文字を指定するオプション（validate_delimitersとvalidate_hexは無視される）
  * @param mac 48bit整数値（0x0000000000000000〜0x0000FFFFFFFFFFFF）
@@ -368,10 +417,27 @@ auto format_mac_address_to_buffer(std::uint64_t const mac, std::span<char, MAC_A
  */
 template <typename Options = parse_mac_options>
 [[nodiscard]]
-auto format_mac_address(std::uint64_t const mac) -> std::string {
-  auto result_buf = std::array<char, MAC_ADDRESS_STRING_LENGTH>{};
-  format_mac_address_to_buffer<Options>(mac, result_buf);
-  return std::string{result_buf.data(), MAC_ADDRESS_STRING_LENGTH};
+constexpr auto format_mac_address(std::uint64_t const mac) -> std::string {
+  if consteval {
+    // 定数評価コンテキスト: 純粋なC++実装
+    auto const mac_48 = mac & 0xFFFFFFFFFFFFull;
+    std::string result(MAC_ADDRESS_STRING_LENGTH, '\0');
+    for (int i = 0; i < 6; ++i) {
+      int const shift       = (5 - i) * 8;
+      int const byte        = static_cast<int>((mac_48 >> shift) & 0xFF);
+      result[static_cast<std::size_t>(i * 3)]     = detail::nibble_to_hex(byte >> 4, detail::uppercase_v<Options>);
+      result[static_cast<std::size_t>(i * 3 + 1)] = detail::nibble_to_hex(byte & 0xF, detail::uppercase_v<Options>);
+      if (i < 5) {
+        result[static_cast<std::size_t>(i * 3 + 2)] = detail::delimiter_v<Options>;
+      }
+    }
+    return result;
+  } else {
+    // 実行時: SIMDを使った高速実装
+    auto result_buf = std::array<char, MAC_ADDRESS_STRING_LENGTH>{};
+    format_mac_address_to_buffer<Options>(mac, result_buf);
+    return std::string{result_buf.data(), MAC_ADDRESS_STRING_LENGTH};
+  }
 }
 
 }  // namespace macad_parser
