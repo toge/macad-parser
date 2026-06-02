@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.25)
-project(macad-parser LANGUAGES CXX)
+project(macad-parser VERSION 0.1.0 LANGUAGES CXX)
 
 ## add stdc++ compiler flag
 include(CheckCXXCompilerFlag)
@@ -40,7 +40,53 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
+## options
+option(BUILD_TEST "Build tests" ON)
+
+## install dirs
+include(GNUInstallDirs)
+include(CMakePackageConfigHelpers)
+
+## find dependencies
 find_path(SIMDE_INCLUDE_DIRS "simde/arm/neon.h")
 
-enable_testing()
-add_subdirectory(test)
+## create header-only interface target
+add_library(macad-parser INTERFACE)
+add_library(macad-parser::macad-parser ALIAS macad-parser)
+
+target_include_directories(macad-parser INTERFACE
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>
+    $<BUILD_INTERFACE:${SIMDE_INCLUDE_DIRS}>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+)
+target_compile_features(macad-parser INTERFACE ${STD_CPP})
+
+install(TARGETS macad-parser EXPORT macad-parserTargets)
+install(EXPORT macad-parserTargets
+    FILE macad-parserTargets.cmake
+    NAMESPACE macad-parser::
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/macad-parser
+)
+install(FILES macad-parser.hpp DESTINATION ${CMAKE_INSTALL_INCLUDEDIR})
+
+configure_package_config_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/cmake/macad-parserConfig.cmake.in
+    ${CMAKE_CURRENT_BINARY_DIR}/macad-parserConfig.cmake
+    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/macad-parser
+)
+write_basic_package_version_file(
+    ${CMAKE_CURRENT_BINARY_DIR}/macad-parserConfigVersion.cmake
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY SameMajorVersion
+)
+install(FILES
+    ${CMAKE_CURRENT_BINARY_DIR}/macad-parserConfig.cmake
+    ${CMAKE_CURRENT_BINARY_DIR}/macad-parserConfigVersion.cmake
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/macad-parser
+)
+
+## test
+if(BUILD_TEST)
+    enable_testing()
+    add_subdirectory(test)
+endif()

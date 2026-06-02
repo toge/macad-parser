@@ -1,0 +1,18 @@
+@PACKAGE_INIT@
+
+include(CMakeFindDependencyMacro)
+
+find_path(macad_parser_simde_INCLUDE_DIR "simde/arm/neon.h")
+if(NOT macad_parser_simde_INCLUDE_DIR)
+    message(FATAL_ERROR "simde is required but was not found. Please install simde (https://github.com/simd-everywhere/simde) and make its headers discoverable.")
+endif()
+
+include(${CMAKE_CURRENT_LIST_DIR}/macad-parserTargets.cmake)
+
+if(TARGET macad-parser::macad-parser)
+    set_property(TARGET macad-parser::macad-parser APPEND PROPERTY
+        INTERFACE_INCLUDE_DIRECTORIES "${macad_parser_simde_INCLUDE_DIR}"
+    )
+endif()
+
+check_required_components(macad-parser)
