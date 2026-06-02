@@ -142,7 +142,7 @@ namespace detail {
         if constexpr (validate_hex_v<Options>) {
           return std::nullopt;
         }
-        val = 0; 
+        val = 0;
       }
       result = (result << 4) | val;
     }
@@ -261,9 +261,10 @@ auto constexpr parse_mac_address_unsafe(std::string_view const mac) noexcept -> 
 }
 
 /**
- * @brief 安全版MACアドレスパーサ
+ * @brief 安全版MACアドレスパーサ (constexpr対応)
  *
- * 入力文字列が32byte未満の場合にバッファオーバーランを防止するためのラッパー
+ * 入力文字列が32byte未満の場合にバッファオーバーランを防止するためのラッパー。
+ * 定数評価コンテキストでは純粋なC++実装を使用し、実行時はSIMD実装を使用する。
  *
  * @tparam Options パースの仕方を指定するオプション
  * @param mac_str パース対象のMACアドレス文字列 (例: "AA:BB:CC:DD:EE:FF")
@@ -434,10 +435,11 @@ auto constexpr format_mac_address_to_buffer(std::uint64_t const mac, std::span<c
 }
 
 /**
- * @brief 48bit整数をMACアドレス文字列に変換する
+ * @brief 48bit整数をMACアドレス文字列に変換する (constexpr対応)
  *
  * SIMDEを利用してAVX2命令を抽象化し、ARM環境でも動作するように実装
- * 整数値から16進数文字列への変換をベクトル演算（SIMDE経由）で行います
+ * 整数値から16進数文字列への変換をベクトル演算（SIMDE経由）で行います。
+ * 定数評価コンテキストでは純粋なC++実装を使用し、実行時はSIMD実装を使用する。
  *
  * @tparam Options デリミタと大文字・小文字を指定するオプション（validate_delimitersとvalidate_hexは無視される）
  * @param mac 48bit整数値（0x0000000000000000〜0x0000FFFFFFFFFFFF）
