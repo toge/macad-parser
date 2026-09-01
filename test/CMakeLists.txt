@@ -7,6 +7,12 @@ add_executable(all_test main.cpp ${test_src})
 target_link_libraries(all_test PRIVATE Catch2::Catch2 Catch2::Catch2WithMain macad-parser::macad-parser)
 target_compile_features(all_test PRIVATE ${STD_CPP})
 
+if(EMSCRIPTEN)
+    # Catch2 テストのメモリ需要がデフォルトの INITIAL_MEMORY (16MB) を超えるため
+    # ランタイムのメモリ拡張を許可する
+    target_link_options(all_test PRIVATE -sALLOW_MEMORY_GROWTH)
+endif()
+
 add_test(NAME all_test COMMAND all_test -r junit)
 
 if(ENABLE_FREESTANDING)
