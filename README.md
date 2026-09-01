@@ -84,6 +84,30 @@ auto constexpr format_mac_address(std::uint64_t const mac) -> std::string;
 #### `parse_mac_address_no_delimiter`
 - `AABBCCDDEEFF` のようなデリミタなし形式をパースします。
 
+## FREESTANDING 対応
+
+コア機能（パース・バッファ出力）は動的確保を行わないため、FREESTANDING 環境（組み込み・カーネル・`wasm32-unknown-unknown` など）でも利用できます。
+
+### 有効化方法
+
+| 方法 | 手順 |
+|---|---|
+| コンパイラフラグ | `-DMACAD_PARSER_FREESTANDING` を付与（`g++ -DMACAD_PARSER_FREESTANDING -I . ...`） |
+| CMake | `-DENABLE_FREESTANDING=ON`（テストに freestanding 検証が追加される） |
+
+`wasm32-unknown-unknown`（`__wasm__ && !__wasi__ && !__EMSCRIPTEN__`）では自動で有効になります。
+
+### 無効化される機能
+
+| 機能 | hosted | FREESTANDING | 代替 |
+|---|---|---|---|
+| `format_mac_address` | `std::string` を返す | 無効（動的確保のため） | `format_mac_address_to_buffer` + 自前バッファ |
+| `format_eui64_address` | `std::string` を返す | 無効（動的確保のため） | `format_eui64_to_buffer` + 自前バッファ |
+
+FREESTANDING 検証は `test/freestanding_check.cpp` を `-ffreestanding -fno-exceptions -fno-rtti -nostdlib++`（libstdc++ リンクなし）でビルド・実行し、動的確保（`operator new` 等）やホスト専用ライブラリへの逆戻りを検出します。
+
+※ 依存の SIMDe は未使用でも `<cmath>` を取り込むため、GCC 16 のように `<cmath>` を hosted 専用とする実装では、`test/freestanding_check.cpp` が行っている `HUGE_VAL` 先行定義と `SIMDE_NO_NATIVE` の定義が必要です。また `wasm32-unknown-unknown` では simde の `_Float16` 検出が誤動作するため `-DSIMDE_FLOAT16_API=SIMDE_FLOAT16_API_PORTABLE` の付与を推奨します。
+
 ## ライセンス
 
 MIT License

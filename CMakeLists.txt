@@ -42,6 +42,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 ## options
 option(BUILD_TEST "Build tests" ON)
+option(ENABLE_FREESTANDING "Define MACAD_PARSER_FREESTANDING and add the freestanding check test" OFF)
 
 ## install dirs
 include(GNUInstallDirs)

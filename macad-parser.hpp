@@ -1,6 +1,14 @@
 #ifndef MACAD_PARSER_HPP
 #define MACAD_PARSER_HPP
 
+// FREESTANDING 対応: MACAD_PARSER_FREESTANDING を定義すると、動的確保を伴う
+// 便利関数 (format_mac_address / format_eui64_address の std::string 版) が
+// 無効化される。wasm32-unknown-unknown (freestanding) では自動的に有効になる。
+// 有効時は libstdc++ / libc++ をリンクしない (-nostdlib++) ビルドでも使用可能。
+#if !defined(MACAD_PARSER_FREESTANDING) && defined(__wasm__) && !defined(__wasi__) && !defined(__EMSCRIPTEN__)
+#  define MACAD_PARSER_FREESTANDING 1
+#endif
+
 #include <array>
 #include <bit>
 #include <concepts>
@@ -9,10 +17,11 @@
 #include <expected>
 #include <optional>
 #include <span>
-#include <string>
 #include <string_view>
-#include <system_error>
 #include <type_traits>
+#if !defined(MACAD_PARSER_FREESTANDING)
+#include <string>
+#endif
 
 #include "simde/x86/avx2.h"
 
@@ -445,6 +454,7 @@ auto constexpr format_mac_address_to_buffer(std::uint64_t const mac, std::span<c
  * @param mac 48bit整数値（0x0000000000000000〜0x0000FFFFFFFFFFFF）
  * @return std::string MACアドレス文字列 (例: "AA:BB:CC:DD:EE:FF" または "aa:bb:cc:dd:ee:ff")
  */
+#if !defined(MACAD_PARSER_FREESTANDING)
 template <typename Options = parse_mac_options>
 [[nodiscard]]
 auto constexpr format_mac_address(std::uint64_t const mac) -> std::string {
@@ -452,6 +462,7 @@ auto constexpr format_mac_address(std::uint64_t const mac) -> std::string {
   format_mac_address_to_buffer<Options>(mac, result_buf);
   return std::string{result_buf.data(), MAC_ADDRESS_STRING_LENGTH};
 }
+#endif
 
 /**
  * @brief EUI-64アドレスを示す文字列をパースして64bit整数に変換する
@@ -486,6 +497,7 @@ auto constexpr format_eui64_to_buffer(std::uint64_t const eui, std::span<char, E
 /**
  * @brief 64bit整数をEUI-64アドレス文字列に変換する
  */
+#if !defined(MACAD_PARSER_FREESTANDING)
 template <typename Options = parse_mac_options>
 [[nodiscard]]
 auto constexpr format_eui64_address(std::uint64_t const eui) -> std::string {
@@ -493,6 +505,7 @@ auto constexpr format_eui64_address(std::uint64_t const eui) -> std::string {
   format_eui64_to_buffer<Options>(eui, result_buf);
   return std::string{result_buf.data(), EUI64_STRING_LENGTH};
 }
+#endif
 
 /**
  * @brief デリミタなしのMACアドレス文字列（12文字）をパースする
