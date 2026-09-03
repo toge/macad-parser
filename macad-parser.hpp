@@ -42,6 +42,12 @@ namespace macad_parser::detail {
 #  define MACAD_PARSER_THROW(expr) ::macad_parser::detail::fail()
 #endif
 
+#include <cmath>
+
+#if (defined(__wasi__) || defined(__wasm__)) && !defined(SIMDE_FLOAT16_API)
+#  define SIMDE_FLOAT16_API 1
+#endif
+
 #include "simde/x86/avx2.h"
 
 namespace macad_parser {
