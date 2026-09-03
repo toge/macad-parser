@@ -1,3 +1,17 @@
+# smoke_wasi_minimal は常時ビルド可能（hosted 依存なし）
+# WASI_MINIMAL の契約 (例外なしでビルド可能) を hosted でも検証する
+add_executable(smoke_wasi_minimal smoke_wasi_minimal.cpp)
+target_link_libraries(smoke_wasi_minimal PRIVATE macad-parser::macad-parser)
+target_compile_features(smoke_wasi_minimal PRIVATE ${STD_CPP})
+target_compile_definitions(smoke_wasi_minimal PRIVATE MACAD_PARSER_WASI_MINIMAL=1)
+target_compile_options(smoke_wasi_minimal PRIVATE $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-fno-exceptions>)
+add_test(NAME smoke_wasi_minimal COMMAND smoke_wasi_minimal)
+
+if(ENABLE_WASI_MINIMAL)
+  # WASI_MINIMAL ビルドでは hosted なテストはスキップ
+  return()
+endif()
+
 find_package(Catch2 REQUIRED CONFIG)
 
 file(GLOB test_src test_*.cpp)
@@ -14,19 +28,3 @@ if(EMSCRIPTEN)
 endif()
 
 add_test(NAME all_test COMMAND all_test -r junit)
-
-if(ENABLE_FREESTANDING)
-    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-        # freestanding 検証: Catch2 を使わず libstdc++ リンクなしでビルド・実行する。
-        # コア機能が動的確保やホスト専用ライブラリに逆戻りすると
-        # コンパイルエラーまたはリンクエラー (operator new 等) で失敗する。
-        add_executable(freestanding_check freestanding_check.cpp)
-        target_link_libraries(freestanding_check PRIVATE macad-parser::macad-parser)
-        target_compile_definitions(freestanding_check PRIVATE MACAD_PARSER_FREESTANDING)
-        target_compile_options(freestanding_check PRIVATE -ffreestanding -fno-exceptions -fno-rtti)
-        target_link_options(freestanding_check PRIVATE -nostdlib++)
-        add_test(NAME freestanding_check COMMAND freestanding_check)
-    else()
-        message(WARNING "ENABLE_FREESTANDING check test requires GNU/Clang")
-    endif()
-endif()

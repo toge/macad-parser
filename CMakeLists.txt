@@ -2,15 +2,24 @@ cmake_minimum_required(VERSION 3.25)
 project(macad-parser VERSION 0.1.0 LANGUAGES CXX)
 
 ## add stdc++ compiler flag
+# MSVC は -std=c++XX を未知オプションとして警告 D9002 で無視するだけでビルドが
+# 成功するため、CHECK_CXX_COMPILER_FLAG が誤って「対応済み」と判定してしまう。
+# その結果 C++14 のままコンパイルされ concepts / string_view / uz 等が壊れる。
+# MSVC の場合は /std:c++latest を明示的に指定する。
 include(CheckCXXCompilerFlag)
-CHECK_CXX_COMPILER_FLAG("-std=c++26" COMPILER_SUPPORTS_CXX26)
-CHECK_CXX_COMPILER_FLAG("-std=c++23" COMPILER_SUPPORTS_CXX23)
-if(COMPILER_SUPPORTS_CXX26)
-    set(STD_CPP cxx_std_26)
-elseif(COMPILER_SUPPORTS_CXX23)
-    set(STD_CPP cxx_std_23)
+if(MSVC)
+    set(STD_CPP "")
+    string(APPEND CMAKE_CXX_FLAGS " /std:c++latest")
 else()
-    message(STATUS "The compiler ${CMAKE_CXX_COMPILER} has no C++11 support. Please use a different C++ compiler.")
+    CHECK_CXX_COMPILER_FLAG("-std=c++26" COMPILER_SUPPORTS_CXX26)
+    CHECK_CXX_COMPILER_FLAG("-std=c++23" COMPILER_SUPPORTS_CXX23)
+    if(COMPILER_SUPPORTS_CXX26)
+        set(STD_CPP cxx_std_26)
+    elseif(COMPILER_SUPPORTS_CXX23)
+        set(STD_CPP cxx_std_23)
+    else()
+        message(STATUS "The compiler ${CMAKE_CXX_COMPILER} has no C++11 support. Please use a different C++ compiler.")
+    endif()
 endif()
 
 ## add warning
@@ -42,7 +51,11 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 ## options
 option(BUILD_TEST "Build tests" ON)
-option(ENABLE_FREESTANDING "Define MACAD_PARSER_FREESTANDING and add the freestanding check test" OFF)
+option(ENABLE_WASI_MINIMAL "Enable WASI minimal (no exceptions) mode - wasi-sdk wasm32-wasip1 assumed" OFF)
+
+if(ENABLE_WASI_MINIMAL)
+  add_compile_definitions(MACAD_PARSER_WASI_MINIMAL=1)
+endif()
 
 ## install dirs
 include(GNUInstallDirs)

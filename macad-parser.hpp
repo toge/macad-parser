@@ -1,12 +1,22 @@
 #ifndef MACAD_PARSER_HPP
 #define MACAD_PARSER_HPP
 
-// FREESTANDING 対応: MACAD_PARSER_FREESTANDING を定義すると、動的確保を伴う
-// 便利関数 (format_mac_address / format_eui64_address の std::string 版) が
-// 無効化される。wasm32-unknown-unknown (freestanding) では自動的に有効になる。
-// 有効時は libstdc++ / libc++ をリンクしない (-nostdlib++) ビルドでも使用可能。
-#if !defined(MACAD_PARSER_FREESTANDING) && defined(__wasm__) && !defined(__wasi__) && !defined(__EMSCRIPTEN__)
-#  define MACAD_PARSER_FREESTANDING 1
+/**
+ * @brief ビルドモード設定。
+ *
+ * MACAD_PARSER_WASI_MINIMAL が定義されると、ライブラリ内の例外送出は
+ * MACAD_PARSER_THROW マクロ経由で std::abort() に置き換わり、-fno-exceptions でも
+ * ビルドできる「例外なしモード」になる。wasm32-wasip1 / wasm32-emscripten は
+ * WASI/hosted とみなすため自動では有効にならず、WASI 上で最小構成を検証する場合は
+ * 手動で `-DMACAD_PARSER_WASI_MINIMAL` を指定する。本ライブラリの WASI 対応は
+ * wasi-sdk sysroot を用いた wasm32-wasip1 でのビルドを想定（wasm3 等で実行可能）。
+ * `<string>` / `<iostream>` は wasip1/wasip2 では WASI 経由で利用可能なため無効化しない。
+ *
+ * 例: clang++ --target=wasm32-wasip1 --sysroot=/opt/wasi-sdk/share/wasi-sysroot
+ *       -fno-exceptions -DMACAD_PARSER_WASI_MINIMAL=1 -I . -c src.cpp -o src.o
+ */
+#if !defined(MACAD_PARSER_WASI_MINIMAL) && defined(__wasm__) && !defined(__wasi__) && !defined(__EMSCRIPTEN__)
+#  define MACAD_PARSER_WASI_MINIMAL 1
 #endif
 
 #include <array>
@@ -17,10 +27,19 @@
 #include <expected>
 #include <optional>
 #include <span>
+#include <string>
 #include <string_view>
 #include <type_traits>
-#if !defined(MACAD_PARSER_FREESTANDING)
-#include <string>
+
+#ifndef MACAD_PARSER_WASI_MINIMAL
+#  include <stdexcept>
+#  define MACAD_PARSER_THROW(expr) throw expr
+#else
+#  include <cstdlib>
+namespace macad_parser::detail {
+[[noreturn]] inline void fail() noexcept { std::abort(); }
+} // namespace macad_parser::detail
+#  define MACAD_PARSER_THROW(expr) ::macad_parser::detail::fail()
 #endif
 
 #include "simde/x86/avx2.h"
@@ -454,7 +473,6 @@ auto constexpr format_mac_address_to_buffer(std::uint64_t const mac, std::span<c
  * @param mac 48bit整数値（0x0000000000000000〜0x0000FFFFFFFFFFFF）
  * @return std::string MACアドレス文字列 (例: "AA:BB:CC:DD:EE:FF" または "aa:bb:cc:dd:ee:ff")
  */
-#if !defined(MACAD_PARSER_FREESTANDING)
 template <typename Options = parse_mac_options>
 [[nodiscard]]
 auto constexpr format_mac_address(std::uint64_t const mac) -> std::string {
@@ -462,7 +480,6 @@ auto constexpr format_mac_address(std::uint64_t const mac) -> std::string {
   format_mac_address_to_buffer<Options>(mac, result_buf);
   return std::string{result_buf.data(), MAC_ADDRESS_STRING_LENGTH};
 }
-#endif
 
 /**
  * @brief EUI-64アドレスを示す文字列をパースして64bit整数に変換する
@@ -497,7 +514,6 @@ auto constexpr format_eui64_to_buffer(std::uint64_t const eui, std::span<char, E
 /**
  * @brief 64bit整数をEUI-64アドレス文字列に変換する
  */
-#if !defined(MACAD_PARSER_FREESTANDING)
 template <typename Options = parse_mac_options>
 [[nodiscard]]
 auto constexpr format_eui64_address(std::uint64_t const eui) -> std::string {
@@ -505,7 +521,6 @@ auto constexpr format_eui64_address(std::uint64_t const eui) -> std::string {
   format_eui64_to_buffer<Options>(eui, result_buf);
   return std::string{result_buf.data(), EUI64_STRING_LENGTH};
 }
-#endif
 
 /**
  * @brief デリミタなしのMACアドレス文字列（12文字）をパースする
