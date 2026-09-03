@@ -51,7 +51,11 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 ## options
 option(BUILD_TEST "Build tests" ON)
-option(ENABLE_FREESTANDING "Define MACAD_PARSER_FREESTANDING and add the freestanding check test" OFF)
+option(ENABLE_WASI_MINIMAL "Enable WASI minimal (no exceptions) mode - wasi-sdk wasm32-wasip1 assumed" OFF)
+
+if(ENABLE_WASI_MINIMAL)
+  add_compile_definitions(MACAD_PARSER_WASI_MINIMAL=1)
+endif()
 
 ## install dirs
 include(GNUInstallDirs)

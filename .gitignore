@@ -1,5 +1,5 @@
 build
-build_static
+build_*
 _codeql_build_dir
 save-commands.json
 

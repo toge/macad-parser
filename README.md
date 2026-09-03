@@ -84,29 +84,22 @@ auto constexpr format_mac_address(std::uint64_t const mac) -> std::string;
 #### `parse_mac_address_no_delimiter`
 - `AABBCCDDEEFF` のようなデリミタなし形式をパースします。
 
-## FREESTANDING 対応
+## WASI 環境対応
 
-コア機能（パース・バッファ出力）は動的確保を行わないため、FREESTANDING 環境（組み込み・カーネル・`wasm32-unknown-unknown` など）でも利用できます。
+`wasm32-wasip1`（旧 `wasm32-wasi`）環境でも、コア機能はヘッダオンリーかつ `constexpr` 主体のため利用できます。本ライブラリは `<string>` 等の hosted ヘッダを必要としますが、wasi-sdk sysroot を用いた `wasm32-wasip1` ではそのままビルドできます（`wasm3` 等で実行可能）。
 
 ### 有効化方法
 
 | 方法 | 手順 |
 |---|---|
-| コンパイラフラグ | `-DMACAD_PARSER_FREESTANDING` を付与（`g++ -DMACAD_PARSER_FREESTANDING -I . ...`） |
-| CMake | `-DENABLE_FREESTANDING=ON`（テストに freestanding 検証が追加される） |
+| コンパイラフラグ | `-DMACAD_PARSER_WASI_MINIMAL` を付与（`g++ -DMACAD_PARSER_WASI_MINIMAL -I . ...`） |
+| CMake | `-DENABLE_WASI_MINIMAL=ON`（`macad-parser.hpp:18`、`CMakeLists.txt:54`） |
 
-`wasm32-unknown-unknown`（`__wasm__ && !__wasi__ && !__EMSCRIPTEN__`）では自動で有効になります。
+`wasm32-wasip1` / `wasm32-emscripten` は WASI/hosted とみなすため自動では有効にならず、WASI 上で最小構成を検証したい場合は明示的に `-DMACAD_PARSER_WASI_MINIMAL` を付与してください。`wasm32-unknown-unknown`（`__wasm__ && !__wasi__ && !__EMSCRIPTEN__`）では自動で有効になります（bare-metal 向けの互換）。
 
-### 無効化される機能
+### WASI Minimal の挙動
 
-| 機能 | hosted | FREESTANDING | 代替 |
-|---|---|---|---|
-| `format_mac_address` | `std::string` を返す | 無効（動的確保のため） | `format_mac_address_to_buffer` + 自前バッファ |
-| `format_eui64_address` | `std::string` を返す | 無効（動的確保のため） | `format_eui64_to_buffer` + 自前バッファ |
-
-FREESTANDING 検証は `test/freestanding_check.cpp` を `-ffreestanding -fno-exceptions -fno-rtti -nostdlib++`（libstdc++ リンクなし）でビルド・実行し、動的確保（`operator new` 等）やホスト専用ライブラリへの逆戻りを検出します。
-
-※ 依存の SIMDe は未使用でも `<cmath>` を取り込むため、GCC 16 のように `<cmath>` を hosted 専用とする実装では、`test/freestanding_check.cpp` が行っている `HUGE_VAL` 先行定義と `SIMDE_NO_NATIVE` の定義が必要です。また `wasm32-unknown-unknown` では simde の `_Float16` 検出が誤動作するため `-DSIMDE_FLOAT16_API=SIMDE_FLOAT16_API_PORTABLE` の付与を推奨します。
+`MACAD_PARSER_WASI_MINIMAL` 定義時、例外送出は `MACAD_PARSER_THROW` マクロ（`macad-parser.hpp`）経由で `std::abort()` に置き換わります。`<string>` は wasip1 では WASI 経由で利用可能なため無効化しません。`-fno-exceptions` でビルドできます。
 
 ## ライセンス
 
