@@ -365,6 +365,14 @@ jobs:
           /opt/wasi-sdk/bin/clang --version
           /opt/wasi-sdk/bin/clang++ --version
 
+      - name: Install wasmtime
+        run: |
+          curl -L https://github.com/bytecodealliance/wasmtime/releases/download/v34.0.0/wasmtime-v34.0.0-x86_64-linux.tar.xz \
+            -o /tmp/wasmtime.tar.xz
+          tar -xf /tmp/wasmtime.tar.xz -C /tmp
+          cp /tmp/wasmtime-v34.0.0-x86_64-linux/wasmtime /usr/local/bin/
+          wasmtime --version
+
       - name: Restore vcpkg cache
         uses: actions/cache@v4
         with:
