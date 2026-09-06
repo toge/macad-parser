@@ -382,16 +382,16 @@ jobs:
             ~/vcpkg/bootstrap-vcpkg.sh
           fi
 
-      - name: Build WASI minimal with vcpkg + wasi-sdk (wasm32-wasip1)
+      - name: Build WASI with vcpkg + wasi-sdk (wasm32-wasip1)
         run: |
           cmake -B build -S . -G Ninja \
             -DCMAKE_TOOLCHAIN_FILE=$HOME/vcpkg/scripts/buildsystems/vcpkg.cmake \
             -DVCPKG_TARGET_TRIPLET=wasm32-wasip1 \
             -DVCPKG_OVERLAY_TRIPLETS=$PWD/triplets \
-            -DVCPKG_CHAINLOAD_TOOLCHAIN_FILE=/opt/wasi-sdk/share/cmake/wasi-sdk-p1.cmake \
-            -DENABLE_WASI_MINIMAL=ON
+            -DVCPKG_CHAINLOAD_TOOLCHAIN_FILE=/opt/wasi-sdk/share/cmake/wasi-sdk-p1.cmake
           cmake --build build
-          file build/test/smoke_wasi_minimal | grep -q WebAssembly
+          file build/test/smoke_no_exceptions | grep -q WebAssembly
+          wasmtime run build/test/smoke_no_exceptions
 
   macos:
     runs-on: macos-latest

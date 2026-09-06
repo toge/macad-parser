@@ -1,14 +1,21 @@
-# smoke_wasi_minimal は常時ビルド可能（hosted 依存なし）
-# WASI_MINIMAL の契約 (例外なしでビルド可能) を hosted でも検証する
-add_executable(smoke_wasi_minimal smoke_wasi_minimal.cpp)
-target_link_libraries(smoke_wasi_minimal PRIVATE macad-parser::macad-parser)
-target_compile_features(smoke_wasi_minimal PRIVATE ${STD_CPP})
-target_compile_definitions(smoke_wasi_minimal PRIVATE MACAD_PARSER_WASI_MINIMAL=1)
-target_compile_options(smoke_wasi_minimal PRIVATE $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-fno-exceptions>)
-add_test(NAME smoke_wasi_minimal COMMAND smoke_wasi_minimal)
+# smoke_no_exceptions: always built with -fno-exceptions to verify
+# exception-free compilation (frozenchars-style). No Catch2 dependency.
+add_executable(smoke_no_exceptions smoke_no_exceptions.cpp)
+target_link_libraries(smoke_no_exceptions PRIVATE macad-parser::macad-parser)
+target_compile_features(smoke_no_exceptions PRIVATE ${STD_CPP})
+target_compile_options(smoke_no_exceptions PRIVATE $<$<NOT:$<CXX_COMPILER_ID:MSVC>>:-fno-exceptions>)
 
-if(ENABLE_WASI_MINIMAL)
-  # WASI_MINIMAL ビルドでは hosted なテストはスキップ
+if(CMAKE_SYSTEM_NAME STREQUAL "WASI")
+  find_program(WASMTIME_EXECUTABLE wasmtime)
+  if(WASMTIME_EXECUTABLE)
+    add_test(NAME smoke_no_exceptions COMMAND ${WASMTIME_EXECUTABLE} run smoke_no_exceptions)
+  endif()
+else()
+  add_test(NAME smoke_no_exceptions COMMAND smoke_no_exceptions)
+endif()
+
+# Skip Catch2 tests on wasm32 (exceptions required by Catch2)
+if(CMAKE_SYSTEM_PROCESSOR STREQUAL "wasm32")
   return()
 endif()
 

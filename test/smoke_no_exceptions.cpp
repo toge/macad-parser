@@ -1,22 +1,16 @@
 /**
- * @file test/smoke_wasi_minimal.cpp
- * @brief MACAD_PARSER_WASI_MINIMAL モードの検証。
+ * @file test/smoke_no_exceptions.cpp
+ * @brief Exception-free build verification (frozenchars-style).
  *
- * -fno-exceptions 付きでビルドされる。例外なしで全APIがコンパイル・
- * 実行できることを確認する。wasip1 では <string> を含む hosted ヘッダが
- * WASI 経由で利用可能なため、-nostdlib++ は使わず通常リンクで検証する
- * （真の bare-metal 非対応は frozenchars と同様）。
+ * Built with -fno-exceptions. Verifies all APIs compile and run without
+ * exceptions. No Catch2 dependency — plain main() with assert-style checks.
+ * On WASI, executed via `wasmtime run`.
  */
 
 #include <cstdio>
 #include <string>
 
 #include "macad-parser.hpp"
-
-// wasm32-unknown-unknown ではヘッダ側で自動有効化される。それ以外は明示が必要。
-#ifndef MACAD_PARSER_WASI_MINIMAL
-#error "MACAD_PARSER_WASI_MINIMAL is not defined (build with -DENABLE_WASI_MINIMAL=ON)"
-#endif
 
 static int failed = 0;
 
@@ -38,7 +32,9 @@ struct lower_opts_impl {
 };
 
 int main() {
-    using namespace macad_parser;    // 1. MAC アドレスのパース
+    using namespace macad_parser;
+
+    // 1. MAC アドレスのパース
     auto const v = parse_mac_address("AA:BB:CC:DD:EE:FF");
     CHECK(v.has_value());
     CHECK(*v == 0xAABBCCDDEEFFull);
@@ -71,7 +67,7 @@ int main() {
         CHECK(buf[0] == '0' && buf[22] == '7');
     }
 
-    // 6. std::string 返し（wasip1 では WASI 経由で利用可能なため維持）
+    // 6. std::string 返し
     {
         auto const s = format_mac_address(0xAABBCCDDEEFFull);
         CHECK(s == "AA:BB:CC:DD:EE:FF");
@@ -86,6 +82,6 @@ int main() {
         CHECK(parse_mac_address<lower_opts_impl>(std::string_view{buf, MAC_ADDRESS_STRING_LENGTH}) == 0xAABBCCDDEEFFull);
     }
 
-    if (failed == 0) std::printf("smoke_wasi_minimal: all ok\n");
+    if (failed == 0) std::printf("smoke_no_exceptions: all ok\n");
     return failed == 0 ? 0 : 1;
 }

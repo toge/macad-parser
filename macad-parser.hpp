@@ -1,23 +1,9 @@
 #ifndef MACAD_PARSER_HPP
 #define MACAD_PARSER_HPP
 
-/**
- * @brief ビルドモード設定。
- *
- * MACAD_PARSER_WASI_MINIMAL が定義されると、ライブラリ内の例外送出は
- * MACAD_PARSER_THROW マクロ経由で std::abort() に置き換わり、-fno-exceptions でも
- * ビルドできる「例外なしモード」になる。wasm32-wasip1 / wasm32-emscripten は
- * WASI/hosted とみなすため自動では有効にならず、WASI 上で最小構成を検証する場合は
- * 手動で `-DMACAD_PARSER_WASI_MINIMAL` を指定する。本ライブラリの WASI 対応は
- * wasi-sdk sysroot を用いた wasm32-wasip1 でのビルドを想定（wasm3 等で実行可能）。
- * `<string>` / `<iostream>` は wasip1/wasip2 では WASI 経由で利用可能なため無効化しない。
- *
- * 例: clang++ --target=wasm32-wasip1 --sysroot=/opt/wasi-sdk/share/wasi-sysroot
- *       -fno-exceptions -DMACAD_PARSER_WASI_MINIMAL=1 -I . -c src.cpp -o src.o
- */
-#if !defined(MACAD_PARSER_WASI_MINIMAL) && defined(__wasm__) && !defined(__wasi__) && !defined(__EMSCRIPTEN__)
-#  define MACAD_PARSER_WASI_MINIMAL 1
-#endif
+// macad-parser is exception-free by default (frozenchars-style).
+// All error paths return std::nullopt or std::expected; nothing throws.
+// -fno-exceptions compatible out of the box.
 
 #include <array>
 #include <bit>
@@ -30,17 +16,6 @@
 #include <string>
 #include <string_view>
 #include <type_traits>
-
-#ifndef MACAD_PARSER_WASI_MINIMAL
-#  include <stdexcept>
-#  define MACAD_PARSER_THROW(expr) throw expr
-#else
-#  include <cstdlib>
-namespace macad_parser::detail {
-[[noreturn]] inline void fail() noexcept { std::abort(); }
-} // namespace macad_parser::detail
-#  define MACAD_PARSER_THROW(expr) ::macad_parser::detail::fail()
-#endif
 
 #include <cmath>
 
