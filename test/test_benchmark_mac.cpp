@@ -48,7 +48,7 @@ auto parse_mac_address(
   std::uint64_t result = 0;
   
   // 各バイトをパース
-  auto const parse_hex_pair = [&](std::size_t const idx) -> std::optional<std::uint8_t> {
+  auto const parse_hex_pair = [&](std::size_t const idx) noexcept -> std::optional<std::uint8_t> {
     auto const hi_char = mac[idx + 0];
     auto const lo_char = mac[idx + 1];
 
@@ -58,7 +58,7 @@ auto parse_mac_address(
 
     // 16進数文字の検証
     if (validate_hex) {
-      auto const is_hex = [](char const c) {
+      auto const is_hex = [](char const c) noexcept {
         return (c >= '0' and c <= '9') or (c >= 'A' and c <= 'F');
       };
       if (!is_hex(hi_upper) or !is_hex(lo_upper)) {
@@ -67,7 +67,7 @@ auto parse_mac_address(
     }
 
     // 16進数文字を数値に変換
-    auto const hex_to_value = [](char const c) -> std::uint8_t {
+    auto const hex_to_value = [](char const c) noexcept -> std::uint8_t {
       if (c >= '0' and c <= '9') {
         return static_cast<std::uint8_t>(c - '0');
       }

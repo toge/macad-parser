@@ -330,7 +330,7 @@ auto constexpr parse_mac_address_to_bytes(std::string_view const mac) noexcept -
  * @return 書き込まれた文字数（常に17）
  */
 template <typename Options = parse_mac_options>
-auto constexpr format_mac_address_to_buffer(std::uint64_t const mac, std::span<char, MAC_ADDRESS_STRING_LENGTH> buffer) -> std::size_t {
+auto constexpr format_mac_address_to_buffer(std::uint64_t const mac, std::span<char, MAC_ADDRESS_STRING_LENGTH> buffer) noexcept -> std::size_t {
   if consteval {
     auto constexpr hex_chars_upper = std::string_view{"0123456789ABCDEF"};
     auto constexpr hex_chars_lower = std::string_view{"0123456789abcdef"};
@@ -475,7 +475,7 @@ auto constexpr parse_eui64_address(std::string_view const eui) noexcept -> std::
  * @brief 64bit整数をEUI-64アドレス文字列に変換し、指定されたバッファに書き込む
  */
 template <typename Options = parse_mac_options>
-auto constexpr format_eui64_to_buffer(std::uint64_t const eui, std::span<char, EUI64_STRING_LENGTH> buffer) -> std::size_t {
+auto constexpr format_eui64_to_buffer(std::uint64_t const eui, std::span<char, EUI64_STRING_LENGTH> buffer) noexcept -> std::size_t {
   auto constexpr hex_chars_upper = std::string_view{"0123456789ABCDEF"};
   auto constexpr hex_chars_lower = std::string_view{"0123456789abcdef"};
   auto const hex_lut = detail::uppercase_v<Options> ? hex_chars_upper : hex_chars_lower;
